@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amazon Photos 快適ビュー</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #111;
+      color: white;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(17,17,17,.95);
+      padding: 14px 16px;
+      text-align: center;
+      border-bottom: 1px solid #333;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    header p {
+      margin: 5px 0 0;
+      font-size: 12px;
+      color: #aaa;
+    }
+
+    #status {
+      padding: 40px 20px;
+      text-align: center;
+      color: #ccc;
+    }
+
+    #gallery {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+    }
+
+    .photo {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      display: block;
+      cursor: pointer;
+      background: #222;
+    }
+
+    #viewer {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: #000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #viewer.active {
+      display: flex;
+    }
+
+    #viewerImage {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 54px;
+      height: 70px;
+      border: 0;
+      border-radius: 14px;
+      background: rgba(0,0,0,.45);
+      color: white;
+      font-size: 42px;
+      cursor: pointer;
+    }
+
+    #prev {
+      left: 8px;
+    }
+
+    #next {
+      right: 8px;
+    }
+
+    #close {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      border: 0;
+      background: rgba(0,0,0,.55);
+      color: white;
+      border-radius: 50%;
+      width: 46px;
+      height: 46px;
+      font-size: 28px;
+      cursor: pointer;
+    }
+
+    #counter {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 14px;
+      background: rgba(0,0,0,.5);
+      padding: 6px 12px;
+      border-radius: 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h1>Amazon Photos 快適ビュー</h1>
+  <p>写真をタップすると大きく表示できます</p>
+</header>
+
+<div id="status">
+  写真を読み込んでいます…
+</div>
+
+<div id="gallery"></div>
+
+<div id="viewer">
+  <button id="close">×</button>
+  <div id="counter"></div>
+
+  <button class="nav" id="prev">‹</button>
+  <img id="viewerImage" alt="">
+  <button class="nav" id="next">›</button>
+</div>
+
+<script>
+  /*
+   * Amazon Photos 快適ビュー
+   *
+   * 次の段階で、ここにAmazon Photos共有ページから
+   * 取得した写真データを接続します。
+   *
+   * まず今回はGitHub Pages上で
+   * 「快適ビュー本体」が正常に動くところまで確認します。
+   */
+
+  const photos = [];
+
+  const gallery = document.getElementById("gallery");
+  const status = document.getElementById("status");
+  const viewer = document.getElementById("viewer");
+  const viewerImage = document.getElementById("viewerImage");
+  const counter = document.getElementById("counter");
+
+  let currentIndex = 0;
+
+  function renderGallery() {
+
+    if (!photos.length) {
+      status.innerHTML =
+        "快適ビューの準備ができました！<br><br>" +
+        "次にAmazon Photosの写真を接続します。";
+      return;
+    }
+
+    status.style.display = "none";
+
+    photos.forEach((src, index) => {
+      const img = document.createElement("img");
+      img.src = src;
+      img.className = "photo";
+      img.loading = "lazy";
+      img.addEventListener("click", () => openViewer(index));
+      gallery.appendChild(img);
+    });
+  }
+
+  function openViewer(index) {
+    currentIndex = index;
+    updateViewer();
+    viewer.classList.add("active");
+  }
+
+  function updateViewer() {
+    if (!photos.length) return;
+
+    viewerImage.src = photos[currentIndex];
+    counter.textContent =
+      (currentIndex + 1) + " / " + photos.length;
+  }
+
+  function nextPhoto() {
+    if (!photos.length) return;
+    currentIndex = (currentIndex + 1) % photos.length;
+    updateViewer();
+  }
+
+  function prevPhoto() {
+    if (!photos.length) return;
+    currentIndex =
+      (currentIndex - 1 + photos.length) % photos.length;
+    updateViewer();
+  }
+
+  document.getElementById("next")
+    .addEventListener("click", nextPhoto);
+
+  document.getElementById("prev")
+    .addEventListener("click", prevPhoto);
+
+  document.getElementById("close")
+    .addEventListener("click", () => {
+      viewer.classList.remove("active");
+    });
+
+  let startX = 0;
+
+  viewer.addEventListener("touchstart", e => {
+    startX = e.changedTouches[0].screenX;
+  });
+
+  viewer.addEventListener("touchend", e => {
+    const endX = e.changedTouches[0].screenX;
+
+    if (startX - endX > 50) nextPhoto();
+    if (endX - startX > 50) prevPhoto();
+  });
+
+  renderGallery();
+</script>
+
+</body>
+</html>
