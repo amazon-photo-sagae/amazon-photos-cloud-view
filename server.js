@@ -3,6 +3,8 @@ const { chromium } = require("playwright");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const galleryCache = new Map();
+const CACHE_TIME = 30 * 60 * 1000; // 30分
 
 function escapeHtml(text = "") {
   return text
@@ -212,10 +214,21 @@ app.get("/gallery", async (req, res) => {
 
   try {
 
-    const result = await getAmazonPhotos(shareUrl);
+   let images;
 
-    const images = result.images;
+const cached = galleryCache.get(shareUrl);
 
+if (cached && Date.now() - cached.time < CACHE_TIME) {
+  images = cached.images;
+} else {
+  const result = await getAmazonPhotos(shareUrl);
+  images = result.images;
+
+  galleryCache.set(shareUrl, {
+    time: Date.now(),
+    images: images
+  });
+}
     const photoHtml = images.map((src, index) => `
       <img
         src="${src}"
