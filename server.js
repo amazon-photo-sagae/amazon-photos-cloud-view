@@ -3,6 +3,7 @@ const { chromium } = require("playwright");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const DEFAULT_GALLERY_URL = "https://www.amazon.co.jp/photos/share/vT10OCeuywTQHxn52cYBovcNvMHI9aUSk90toM5GyeR";
 const galleryCache = new Map();
 const CACHE_TIME = 30 * 60 * 1000; // 30分
 
@@ -16,7 +17,8 @@ function escapeHtml(text = "") {
 
 // トップページ
 app.get("/", (req, res) => {
-  res.send(`
+return res.redirect("/gallery?url=" + encodeURIComponent(DEFAULT_GALLERY_URL));  
+res.send(`
 <!DOCTYPE html>
 <html lang="ja">
 <head>
