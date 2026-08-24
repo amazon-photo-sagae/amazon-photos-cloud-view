@@ -135,15 +135,28 @@ async function getAmazonPhotos(shareUrl) {
 
     await page.waitForTimeout(7000);
 
-    // 下へ少しずつスクロールして
-    // Amazon Photosに写真を読み込ませる
-    for (let i = 0; i < 12; i++) {
+   // 写真が増えなくなるまで自動でスクロール
+let lastCount = 0;
+let stableCount = 0;
 
-      await page.mouse.wheel(0, 1200);
+for (let i = 0; i < 200; i++) {
+  await page.mouse.wheel(0, 2000);
+  await page.waitForTimeout(1000);
 
-      await page.waitForTimeout(1000);
+  const currentCount = networkImages.size;
 
-    }
+  if (currentCount === lastCount) {
+    stableCount++;
+  } else {
+    stableCount = 0;
+    lastCount = currentCount;
+  }
+
+  // 5回続けて写真が増えなければ最後まで来たと判断
+  if (stableCount >= 5) {
+    break;
+  }
+}
 
     const title = await page.title();
 
