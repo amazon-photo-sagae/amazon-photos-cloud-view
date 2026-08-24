@@ -13,6 +13,7 @@ app.get("/test", async (req, res) => {
 
   if (!shareUrl) {
     return res.status(400).json({
+      success: false,
       error: "Amazon Photosの共有URLを指定してください"
     });
   }
@@ -29,36 +30,60 @@ app.get("/test", async (req, res) => {
       viewport: { width: 1280, height: 900 }
     });
 
+    // 通信中に見つかった画像を保存
+    const networkImages = new Set();
+
+    page.on("response", async (response) => {
+      try {
+        const contentType =
+          (await response.allHeaders())["content-type"] || "";
+
+        if (contentType.startsWith("image/")) {
+          networkImages.add(response.url());
+        }
+      } catch (e) {
+        // 読めない通信は無視
+      }
+    });
+
     await page.goto(shareUrl, {
       waitUntil: "domcontentloaded",
       timeout: 60000
     });
 
-    // 写真が読み込まれる時間を少し待つ
-    await page.waitForTimeout(5000);
+    // Amazon Photosが写真を読み込む時間を待つ
+    await page.waitForTimeout(10000);
 
-    // ページ内にある画像を調べる
-    const images = await page.evaluate(() => {
+    // 少しスクロールして遅延読み込みを促す
+    for (let i = 0; i < 5; i++) {
+      await page.mouse.wheel(0, 1000);
+      await page.waitForTimeout(1500);
+    }
+
+    // ページ内に存在する画像URLも取得
+    const pageImages = await page.evaluate(() => {
       return Array.from(document.images)
-        .map(img => ({
-          src: img.currentSrc || img.src,
-          alt: img.alt || "",
-          width: img.naturalWidth,
-          height: img.naturalHeight
-        }))
-        .filter(img =>
-          img.src &&
-          img.width >= 100 &&
-          img.height >= 100
-        )
-        .slice(0, 20);
+        .map(img => img.currentSrc || img.src)
+        .filter(Boolean);
     });
+
+    // 通信で拾った画像＋ページ内画像を合体
+    const allImages = [
+      ...new Set([
+        ...Array.from(networkImages),
+        ...pageImages
+      ])
+    ];
+
+    const title = await page.title();
 
     res.json({
       success: true,
-      pageTitle: await page.title(),
-      count: images.length,
-      images: images
+      pageTitle: title,
+      networkImageCount: networkImages.size,
+      pageImageCount: pageImages.length,
+      count: allImages.length,
+      images: allImages
     });
 
   } catch (error) {
