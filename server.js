@@ -5,7 +5,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const DEFAULT_GALLERY_URL = "https://www.amazon.co.jp/photos/share/vT10OCeuywTQHxn52cYBovcNvMHI9aUSk90toM5GyeR";
 const galleryCache = new Map();
-const CACHE_TIME = 30 * 60 * 1000; // 30分
+const CACHE_TIME = 12 * 60 * 60 * 1000; // 12時間
 
 function escapeHtml(text = "") {
   return text
