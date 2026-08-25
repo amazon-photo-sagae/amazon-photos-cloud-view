@@ -4,6 +4,7 @@ const { chromium } = require("playwright");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DEFAULT_GALLERY_URL = "https://www.amazon.co.jp/photos/share/vT10OCeuywTQHxn52cYBovcNvMHI9aUSk90toM5GyeR";
+let currentGalleryUrl = DEFAULT_GALLERY_URL;
 const galleryCache = new Map();
 const CACHE_TIME = 12 * 60 * 60 * 1000; // 12時間
 
@@ -17,7 +18,7 @@ function escapeHtml(text = "") {
 
 // トップページ
 app.get("/", (req, res) => {
-return res.redirect("/gallery?url=" + encodeURIComponent(DEFAULT_GALLERY_URL));  
+return res.redirect("/gallery?url=" + encodeURIComponent(currentGalleryUrl)); 
 res.send(`
 <!DOCTYPE html>
 <html lang="ja">
@@ -79,7 +80,58 @@ Amazon Photosの共有URLを貼り付けると、
 </html>
   `);
 });
+// 管理画面
+app.get("/admin", (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Amazon Photos 管理画面</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 40px 20px;
+  }
+  input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 15px;
+    font-size: 16px;
+    margin: 10px 0 15px;
+  }
+  button {
+    width: 100%;
+    padding: 16px;
+    font-size: 17px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
 
+<h1>Amazon Photos 管理画面</h1>
+
+<p>写真撮影係から届いたAmazon Photosの共有URLを貼り付けてください。</p>
+
+<form action="/admin/update" method="GET">
+  <input
+    type="url"
+    name="url"
+    placeholder="Amazon Photosの共有URL"
+    required
+  >
+  <button type="submit">このアルバムに更新</button>
+</form>
+
+</body>
+</html>
+  `);
+});
 
 // Amazon Photosから画像URLを取得
 async function getAmazonPhotos(shareUrl) {
