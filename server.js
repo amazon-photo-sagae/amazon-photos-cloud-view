@@ -8,6 +8,8 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const DEFAULT_GALLERY_URL = "https://www.amazon.co.jp/photos/share/vT10OCeuywTQHxn52cYBovcNvMHI9aUSk90toM5GyeR";
 let currentGalleryUrl = DEFAULT_GALLERY_URL;
 const GALLERY_FILE = "/data/current-gallery.txt";
+const GALLERIES_FILE = "/data/galleries.json";
+let galleries = [];
 const galleryCache = new Map();
 const CACHE_TIME = 12 * 60 * 60 * 1000; // 12時間
 
@@ -22,6 +24,16 @@ try {
 } catch (error) {
   console.error("保存済みアルバムURLの読み込みに失敗:", error.message);
 }
+
+// 保存済みの複数アルバムがあれば読み込む
+try {
+  if (fs.existsSync(GALLERIES_FILE)) {
+    const savedGalleries = fs.readFileSync(GALLERIES_FILE, "utf8");
+    galleries = JSON.parse(savedGalleries);
+  }
+} catch (error) {
+  console.error("保存済み複数アルバムの読み込みに失敗:", error.message);
+}
 function escapeHtml(text = "") {
   return text
     .replaceAll("&", "&amp;")
@@ -32,63 +44,80 @@ function escapeHtml(text = "") {
 
 // トップページ
 app.get("/", (req, res) => {
-return res.redirect("/gallery?url=" + encodeURIComponent(currentGalleryUrl)); 
-res.send(`
+  const galleryList = galleries.length
+    ? galleries.map((gallery) => `
+        <div class="gallery-card">
+          <div class="gallery-name">${escapeHtml(gallery.name)}</div>
+          <a href="/gallery?url=${encodeURIComponent(gallery.url)}">写真を見る</a>
+        </div>
+      `).join("")
+    : `<p class="empty">まだ写真は登録されていません。</p>`;
+
+  res.send(`
 <!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Amazon Photos 快適ビュー</title>
+<title>寒河江ボーイズ PHOTO</title>
 <style>
-body{
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  max-width:700px;
-  margin:0 auto;
-  padding:40px 20px;
-  background:#111;
-  color:#fff;
-}
-h1{font-size:26px;}
-p{line-height:1.7;color:#ccc;}
-input{
-  width:100%;
-  box-sizing:border-box;
-  padding:15px;
-  font-size:16px;
-  border-radius:10px;
-  border:1px solid #555;
-  margin:15px 0;
-}
-button{
-  width:100%;
-  padding:16px;
-  border:0;
-  border-radius:10px;
-  font-size:17px;
-  font-weight:bold;
-  cursor:pointer;
-}
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 30px 20px;
+    background: #f5f5f5;
+    color: #222;
+  }
+
+  h1 {
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  .message {
+    text-align: center;
+    color: #666;
+    margin-bottom: 30px;
+  }
+
+  .gallery-card {
+    background: white;
+    padding: 20px;
+    margin-bottom: 15px;
+    border-radius: 12px;
+  }
+
+  .gallery-name {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 12px;
+  }
+
+  .gallery-card a {
+    display: block;
+    padding: 14px;
+    background: #111;
+    color: white;
+    text-decoration: none;
+    text-align: center;
+    border-radius: 8px;
+    font-weight: bold;
+  }
+
+  .empty {
+    text-align: center;
+    color: #777;
+  }
 </style>
 </head>
+
 <body>
 
-<h1>Amazon Photos 快適ビュー</h1>
+<h1>寒河江ボーイズ PHOTO</h1>
+<p class="message">見たい試合を選んでください</p>
 
-<p>
-Amazon Photosの共有URLを貼り付けると、
-写真をスマホで見やすい一覧にします。
-</p>
-
-<form action="/gallery" method="GET">
-<input
-  type="url"
-  name="url"
-  placeholder="Amazon Photosの共有URL"
-  required
->
-<button type="submit">写真を見る</button>
-</form>
+${galleryList}
 
 </body>
 </html>
@@ -150,6 +179,13 @@ app.get("/admin", requireAdminAuth, (req, res) => {
 <p>写真撮影係から届いたAmazon Photosの共有URLを貼り付けてください。</p>
 
 <form action="/admin/update" method="GET">
+
+<input
+  type="text"
+  name="name"
+  placeholder="試合名（例：湘南B）"
+  required
+>
   <input
     type="url"
     name="url"
@@ -166,9 +202,10 @@ app.get("/admin", requireAdminAuth, (req, res) => {
 
 // 管理画面からアルバムを更新
 app.get("/admin/update", requireAdminAuth, async (req, res) => {
-  const newUrl = req.query.url;
-
+const newUrl = req.query.url;
+const name = req.query.name;
   if (
+    !name ||
     !newUrl ||
     !newUrl.startsWith("https://www.amazon.co.jp/photos/share/")
   ) {
@@ -193,7 +230,12 @@ app.get("/admin/update", requireAdminAuth, async (req, res) => {
     // 今後トップページで表示するアルバムを変更
     currentGalleryUrl = newUrl;
     fs.writeFileSync(GALLERY_FILE, newUrl, "utf8");
-
+    
+galleries.push({
+  name: name,
+  url: newUrl
+});
+fs.writeFileSync(GALLERIES_FILE, JSON.stringify(galleries, null, 2), "utf8");
     // 古いキャッシュを消して、新しいアルバムを保存
     galleryCache.clear();
 
@@ -231,7 +273,7 @@ app.get("/admin/update", requireAdminAuth, async (req, res) => {
 </head>
 <body>
 
-<h1>更新完了！</h1>
+<h1>${escapeHtml(name)} を登録しました！</h1>
 
 <p><strong>${images.length}枚</strong>の写真を読み込みました。</p>
 
