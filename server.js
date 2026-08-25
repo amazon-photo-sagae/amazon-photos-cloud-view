@@ -1,14 +1,27 @@
 const express = require("express");
 const { chromium } = require("playwright");
+const fs = require("fs");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const DEFAULT_GALLERY_URL = "https://www.amazon.co.jp/photos/share/vT10OCeuywTQHxn52cYBovcNvMHI9aUSk90toM5GyeR";
 let currentGalleryUrl = DEFAULT_GALLERY_URL;
+const GALLERY_FILE = "/data/current-gallery.txt";
 const galleryCache = new Map();
 const CACHE_TIME = 12 * 60 * 60 * 1000; // 12時間
 
+// 保存済みのアルバムURLがあれば読み込む
+try {
+  if (fs.existsSync(GALLERY_FILE)) {
+    const savedUrl = fs.readFileSync(GALLERY_FILE, "utf8").trim();
+    if (savedUrl) {
+      currentGalleryUrl = savedUrl;
+    }
+  }
+} catch (error) {
+  console.error("保存済みアルバムURLの読み込みに失敗:", error.message);
+}
 function escapeHtml(text = "") {
   return text
     .replaceAll("&", "&amp;")
@@ -179,6 +192,7 @@ app.get("/admin/update", requireAdminAuth, async (req, res) => {
 
     // 今後トップページで表示するアルバムを変更
     currentGalleryUrl = newUrl;
+    fs.writeFileSync(GALLERY_FILE, newUrl, "utf8");
 
     // 古いキャッシュを消して、新しいアルバムを保存
     galleryCache.clear();
