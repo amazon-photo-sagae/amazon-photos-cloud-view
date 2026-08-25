@@ -4,7 +4,6 @@ const { chromium } = require("playwright");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-console.log("ADMIN_PASSWORD loaded:", !!ADMIN_PASSWORD);
 const DEFAULT_GALLERY_URL = "https://www.amazon.co.jp/photos/share/vT10OCeuywTQHxn52cYBovcNvMHI9aUSk90toM5GyeR";
 let currentGalleryUrl = DEFAULT_GALLERY_URL;
 const galleryCache = new Map();
