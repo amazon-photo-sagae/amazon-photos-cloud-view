@@ -3,6 +3,7 @@ const { chromium } = require("playwright");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const DEFAULT_GALLERY_URL = "https://www.amazon.co.jp/photos/share/vT10OCeuywTQHxn52cYBovcNvMHI9aUSk90toM5GyeR";
 let currentGalleryUrl = DEFAULT_GALLERY_URL;
 const galleryCache = new Map();
@@ -80,8 +81,25 @@ Amazon Photosの共有URLを貼り付けると、
 </html>
   `);
 });
+// 管理画面用のパスワード認証
+function requireAdminAuth(req, res, next) {
+  const auth = req.headers.authorization;
+
+  if (auth) {
+    const encoded = auth.split(" ")[1];
+    const decoded = Buffer.from(encoded, "base64").toString("utf8");
+    const [username, password] = decoded.split(":");
+
+    if (username === "admin" && password === ADMIN_PASSWORD) {
+      return next();
+    }
+  }
+
+  res.set("WWW-Authenticate", 'Basic realm="Amazon Photos Admin"');
+  return res.status(401).send("管理画面を開くには認証が必要です。");
+}
 // 管理画面
-app.get("/admin", (req, res) => {
+app.get("/admin", requireAdminAuth, (req, res) => {
   res.send(`
 <!DOCTYPE html>
 <html lang="ja">
@@ -134,7 +152,7 @@ app.get("/admin", (req, res) => {
 });
 
 // 管理画面からアルバムを更新
-app.get("/admin/update", async (req, res) => {
+app.get("/admin/update", requireAdminAuth, async (req, res) => {
   const newUrl = req.query.url;
 
   if (
