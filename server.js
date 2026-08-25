@@ -220,7 +220,7 @@ app.get("/test", async (req, res) => {
 app.get("/gallery", async (req, res) => {
 
   const shareUrl = req.query.url;
-
+const forceRefresh = req.query.refresh === "1";
   if (!shareUrl) {
 
     return res.redirect("/");
@@ -233,7 +233,7 @@ app.get("/gallery", async (req, res) => {
 
 const cached = galleryCache.get(shareUrl);
 
-if (cached && Date.now() - cached.time < CACHE_TIME) {
+if (!forceRefresh && cached && Date.now() - cached.time < CACHE_TIME) {
   images = cached.images;
 } else {
   const result = await getAmazonPhotos(shareUrl);
