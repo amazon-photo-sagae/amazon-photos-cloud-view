@@ -237,7 +237,7 @@ galleries.push({
 });
 fs.writeFileSync(GALLERIES_FILE, JSON.stringify(galleries, null, 2), "utf8");
     // 新しいアルバムをキャッシュに追加
-    galleryCache.clear();
+   galleryCache.set(newUrl, {
       time: Date.now(),
       images: images
     });
