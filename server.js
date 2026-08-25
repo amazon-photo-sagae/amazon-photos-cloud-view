@@ -133,6 +133,94 @@ app.get("/admin", (req, res) => {
   `);
 });
 
+// 管理画面からアルバムを更新
+app.get("/admin/update", async (req, res) => {
+  const newUrl = req.query.url;
+
+  if (
+    !newUrl ||
+    !newUrl.startsWith("https://www.amazon.co.jp/photos/share/")
+  ) {
+    return res.status(400).send(`
+      <h2>Amazon Photosの共有URLを確認してください。</h2>
+      <p><a href="/admin">管理画面に戻る</a></p>
+    `);
+  }
+
+  try {
+    // 新しいAmazon Photosを最初から読み込む
+    const result = await getAmazonPhotos(newUrl);
+    const images = result.images;
+
+    if (!images.length) {
+      return res.status(500).send(`
+        <h2>写真を取得できませんでした。</h2>
+        <p><a href="/admin">管理画面に戻る</a></p>
+      `);
+    }
+
+    // 今後トップページで表示するアルバムを変更
+    currentGalleryUrl = newUrl;
+
+    // 古いキャッシュを消して、新しいアルバムを保存
+    galleryCache.clear();
+
+    galleryCache.set(newUrl, {
+      time: Date.now(),
+      images: images
+    });
+
+    res.send(`
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>更新完了</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    text-align: center;
+  }
+
+  a {
+    display: block;
+    padding: 16px;
+    margin-top: 20px;
+    background: #111;
+    color: white;
+    text-decoration: none;
+    border-radius: 8px;
+  }
+</style>
+</head>
+<body>
+
+<h1>更新完了！</h1>
+
+<p><strong>${images.length}枚</strong>の写真を読み込みました。</p>
+
+<p>これから保護者用の短いURLを開くと、今回のアルバムが表示されます。</p>
+
+<a href="/">保護者用の写真を見る</a>
+
+<a href="/admin">管理画面に戻る</a>
+
+</body>
+</html>
+    `);
+
+  } catch (error) {
+    res.status(500).send(`
+      <h2>更新中にエラーが発生しました。</h2>
+      <pre>${escapeHtml(error.message)}</pre>
+      <p><a href="/admin">管理画面に戻る</a></p>
+    `);
+  }
+});
 // Amazon Photosから画像URLを取得
 async function getAmazonPhotos(shareUrl) {
 
