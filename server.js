@@ -142,6 +142,14 @@ function requireAdminAuth(req, res, next) {
 }
 // 管理画面
 app.get("/admin", requireAdminAuth, (req, res) => {
+  const adminGalleryList = galleries.length
+    ? galleries.map((gallery, index) => `
+        <div class="admin-gallery">
+          <strong>${escapeHtml(gallery.name)}</strong>
+        </div>
+      `).join("")
+    : `<p>まだ試合は登録されていません。</p>`;
+  
   res.send(`
 <!DOCTYPE html>
 <html lang="ja">
@@ -177,6 +185,12 @@ app.get("/admin", requireAdminAuth, (req, res) => {
 <h1>Amazon Photos 管理画面</h1>
 
 <p>写真撮影係から届いたAmazon Photosの共有URLを貼り付けてください。</p>
+
+<h2>登録済みの試合</h2>
+
+${adminGalleryList}
+
+<h2>新しい試合を登録</h2>
 
 <form action="/admin/update" method="GET">
 
