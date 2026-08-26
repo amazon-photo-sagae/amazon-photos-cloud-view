@@ -59,11 +59,21 @@ function escapeHtml(text = "") {
 app.get("/", (req, res) => {
   const galleryList = galleries.length
     ? galleries.map((gallery) => `
-        <div class="gallery-card">
-          <div class="gallery-name">${escapeHtml(gallery.name)}</div>
-          <a href="/gallery?url=${encodeURIComponent(gallery.url)}">写真を見る</a>
-        </div>
-      `).join("")
+          <div class="gallery-card">
+      ${
+        gallery.date && gallery.tournament && gallery.opponent
+          ? `
+           <div class="gallery-date">${new Date(gallery.date + "T00:00:00").toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" })}</div>
+            <div class="gallery-name">${escapeHtml(gallery.tournament)}</div>
+            <div class="gallery-opponent">vs ${escapeHtml(gallery.opponent)}</div>
+          `
+          : `
+            <div class="gallery-name">${escapeHtml(gallery.name || "試合")}</div>
+          `
+      }
+      <a href="/gallery?url=${encodeURIComponent(gallery.url)}">写真を見る</a>
+    </div>
+  `).join("")
     : `<p class="empty">まだ写真は登録されていません。</p>`;
 
   res.send(`
@@ -100,7 +110,16 @@ app.get("/", (req, res) => {
     margin-bottom: 15px;
     border-radius: 12px;
   }
+.gallery-date {
+  font-size: 14px;
+  color: #777;
+  margin-bottom: 6px;
+}
 
+.gallery-opponent {
+  font-size: 18px;
+  margin-bottom: 14px;
+}
   .gallery-name {
     font-size: 20px;
     font-weight: bold;
@@ -210,9 +229,22 @@ ${adminGalleryList}
 <form action="/admin/update" method="GET">
 
 <input
+  type="date"
+  name="date"
+  required
+>
+
+<input
   type="text"
-  name="name"
-  placeholder="試合名（例：湘南B）"
+  name="tournament"
+  placeholder="大会名（例：小山市長杯）"
+  required
+>
+
+<input
+  type="text"
+  name="opponent"
+  placeholder="対戦相手（例：湘南B）"
   required
 >
   <input
@@ -257,12 +289,16 @@ fs.writeFileSync(
 // 管理画面からアルバムを更新
 app.get("/admin/update", requireAdminAuth, async (req, res) => {
 const newUrl = req.query.url;
-const name = req.query.name;
-  if (
-    !name ||
-    !newUrl ||
-    !newUrl.startsWith("https://www.amazon.co.jp/photos/share/")
-  ) {
+const date = req.query.date;
+const tournament = req.query.tournament;
+const opponent = req.query.opponent;
+ if (
+  !date ||
+  !tournament ||
+  !opponent ||
+  !newUrl ||
+  !newUrl.startsWith("https://www.amazon.co.jp/photos/share/")
+) {
     return res.status(400).send(`
       <h2>Amazon Photosの共有URLを確認してください。</h2>
       <p><a href="/admin">管理画面に戻る</a></p>
@@ -286,7 +322,9 @@ const name = req.query.name;
     fs.writeFileSync(GALLERY_FILE, newUrl, "utf8");
     
 galleries.push({
-  name: name,
+  date: date,
+  tournament: tournament,
+  opponent: opponent,
   url: newUrl
 });
 fs.writeFileSync(GALLERIES_FILE, JSON.stringify(galleries, null, 2), "utf8");
@@ -329,7 +367,9 @@ fs.writeFileSync(
 </head>
 <body>
 
-<h1>${escapeHtml(name)} を登録しました！</h1>
+<h1>${escapeHtml(tournament)} を登録しました！</h1>
+
+<p>${escapeHtml(date)}　vs ${escapeHtml(opponent)}</p>
 
 <p><strong>${images.length}枚</strong>の写真を読み込みました。</p>
 
