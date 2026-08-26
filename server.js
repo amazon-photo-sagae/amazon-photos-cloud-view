@@ -513,6 +513,11 @@ if (!forceRefresh && cached && Date.now() - cached.time < CACHE_TIME) {
     time: Date.now(),
     images: images
   });
+fs.writeFileSync(
+  CACHE_FILE,
+  JSON.stringify(Object.fromEntries(galleryCache), null, 2),
+  "utf8"
+);  
 }
     const photoHtml = images.map((src, index) => `
       <img
