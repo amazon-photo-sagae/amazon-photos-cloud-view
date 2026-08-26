@@ -145,8 +145,10 @@ app.get("/admin", requireAdminAuth, (req, res) => {
   const adminGalleryList = galleries.length
     ? galleries.map((gallery, index) => `
         <div class="admin-gallery">
-          <strong>${escapeHtml(gallery.name)}</strong>
-        </div>
+   <div class="admin-gallery">
+  <strong>${escapeHtml(gallery.name)}</strong>
+ <a href="/admin/delete?index=${index}" onclick="return confirm('この試合を本当に削除しますか？');">削除</a>
+</div>     
       `).join("")
     : `<p>まだ試合は登録されていません。</p>`;
   
@@ -213,7 +215,28 @@ ${adminGalleryList}
 </html>
   `);
 });
+// 登録済みの試合を削除
+app.get("/admin/delete", requireAdminAuth, (req, res) => {
+  const index = Number(req.query.index);
 
+  if (!Number.isInteger(index) || index < 0 || index >= galleries.length) {
+    return res.status(400).send("削除する試合が見つかりません。");
+  }
+
+  const deletedGallery = galleries[index];
+
+  galleries.splice(index, 1);
+
+  fs.writeFileSync(
+    GALLERIES_FILE,
+    JSON.stringify(galleries, null, 2),
+    "utf8"
+  );
+
+  galleryCache.delete(deletedGallery.url);
+
+  res.redirect("/admin");
+});
 // 管理画面からアルバムを更新
 app.get("/admin/update", requireAdminAuth, async (req, res) => {
 const newUrl = req.query.url;
