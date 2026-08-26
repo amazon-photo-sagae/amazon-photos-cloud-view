@@ -178,7 +178,11 @@ app.get("/admin", requireAdminAuth, (req, res) => {
     ? galleries.map((gallery, index) => `
         <div class="admin-gallery">
    <div class="admin-gallery">
-  <strong>${escapeHtml(gallery.name)}</strong>
+ <strong>${
+  gallery.date && gallery.tournament && gallery.opponent
+    ? `${escapeHtml(gallery.date)} ${escapeHtml(gallery.tournament)} vs ${escapeHtml(gallery.opponent)}`
+    : escapeHtml(gallery.name || "試合")
+}</strong>
  <a href="/admin/delete?index=${index}" onclick="return confirm('この試合を本当に削除しますか？');">削除</a>
 </div>     
       `).join("")
