@@ -9,6 +9,7 @@ const DEFAULT_GALLERY_URL = "https://www.amazon.co.jp/photos/share/vT10OCeuywTQH
 let currentGalleryUrl = DEFAULT_GALLERY_URL;
 const GALLERY_FILE = "/data/current-gallery.txt";
 const GALLERIES_FILE = "/data/galleries.json";
+const CACHE_FILE = "/data/gallery-cache.json";
 let galleries = [];
 const galleryCache = new Map();
 const CACHE_TIME = 12 * 60 * 60 * 1000; // 12時間
@@ -33,6 +34,18 @@ try {
   }
 } catch (error) {
   console.error("保存済み複数アルバムの読み込みに失敗:", error.message);
+}
+// 保存済みの写真キャッシュがあれば読み込む
+try {
+  if (fs.existsSync(CACHE_FILE)) {
+    const savedCache = JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
+
+    for (const [url, data] of Object.entries(savedCache)) {
+      galleryCache.set(url, data);
+    }
+  }
+} catch (error) {
+  console.error("保存済み写真キャッシュの読み込みに失敗:", error.message);
 }
 function escapeHtml(text = "") {
   return text
@@ -234,7 +247,11 @@ app.get("/admin/delete", requireAdminAuth, (req, res) => {
   );
 
   galleryCache.delete(deletedGallery.url);
-
+fs.writeFileSync(
+  CACHE_FILE,
+  JSON.stringify(Object.fromEntries(galleryCache), null, 2),
+  "utf8"
+);
   res.redirect("/admin");
 });
 // 管理画面からアルバムを更新
@@ -278,7 +295,11 @@ fs.writeFileSync(GALLERIES_FILE, JSON.stringify(galleries, null, 2), "utf8");
       time: Date.now(),
       images: images
     });
-
+fs.writeFileSync(
+  CACHE_FILE,
+  JSON.stringify(Object.fromEntries(galleryCache), null, 2),
+  "utf8"
+);
     res.send(`
 <!DOCTYPE html>
 <html lang="ja">
