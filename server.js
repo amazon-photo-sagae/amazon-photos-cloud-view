@@ -58,7 +58,7 @@ function escapeHtml(text = "") {
 // トップページ
 app.get("/", (req, res) => {
   const galleryList = galleries.length
-    ? galleries.map((gallery) => `
+ ? [...galleries].reverse().map((gallery) => `
           <div class="gallery-card">
       ${
         gallery.date && gallery.tournament && gallery.opponent
