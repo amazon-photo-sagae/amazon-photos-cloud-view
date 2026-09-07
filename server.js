@@ -146,10 +146,192 @@ app.get("/", (req, res) => {
 
 <body>
 
-<h1>寒河江ボーイズ PHOTO</h1>
+<h1>寒河江ボーイズ</h1>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0;">
+  <a href="/" style="text-decoration:none;text-align:center;padding:14px 10px;border-radius:12px;font-weight:700;background:#1f4f7a;color:white;">
+    📷 PHOTO
+  </a>
+  <a href="/movie" style="text-decoration:none;text-align:center;padding:14px 10px;border-radius:12px;font-weight:700;background:white;color:#222;border:1px solid #ddd;">
+    🎥 MOVIE
+  </a>
+</div>
+
 <p class="message">見たい試合を選んでください</p>
 
 ${galleryList}
+
+</body>
+</html>
+  `);
+});
+app.get("/movie", (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>寒河江ボーイズ MOVIE</title>
+
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 30px 20px;
+  background: #f5f5f5;
+  color: #222;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.message {
+  text-align: center;
+  color: #666;
+  margin-bottom: 30px;
+}
+
+.nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.nav a {
+  text-decoration: none;
+  text-align: center;
+  padding: 14px 10px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.photo-button {
+  background: white;
+  color: #222;
+  border: 1px solid #ddd;
+}
+
+.movie-button {
+  background: #1f4f7a;
+  color: white;
+}
+
+.movie-card {
+  background: white;
+  padding: 20px;
+  margin-bottom: 15px;
+  border-radius: 12px;
+}
+
+.date {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+.tournament {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.opponent {
+  font-size: 22px;
+  font-weight: bold;
+  margin: 8px 0 16px;
+}
+
+.youtube-button {
+  display: block;
+  text-align: center;
+  padding: 14px;
+  background: #b3262e;
+  color: white;
+  text-decoration: none;
+  font-weight: bold;
+  border-radius: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>寒河江ボーイズ</h1>
+
+<div class="nav">
+  <a href="/" class="photo-button">📷 PHOTO</a>
+  <a href="/movie" class="movie-button">🎥 MOVIE</a>
+</div>
+
+<p class="message">見たい試合を選んでください</p>
+
+<div class="movie-card">
+  <div class="date">2026年8月23日</div>
+  <div class="tournament">小山市長杯</div>
+  <div class="opponent">vs 宇都宮リトルシニア</div>
+  <a class="youtube-button" href="https://youtu.be/3KnWGRQBwJo" target="_blank">▶ 試合動画を見る</a>
+</div>
+
+<div class="movie-card">
+  <div class="date">2026年8月23日</div>
+  <div class="tournament">小山市長杯</div>
+  <div class="opponent">vs 小山B</div>
+  <a class="youtube-button" href="https://youtu.be/U8bs4QXLJ30" target="_blank">▶ 試合動画を見る</a>
+</div>
+
+<div class="movie-card">
+  <div class="date">2026年8月22日</div>
+  <div class="tournament">小山市長杯</div>
+  <div class="opponent">vs つくば学園B</div>
+  <a class="youtube-button" href="https://youtu.be/GjLIyJUATVU" target="_blank">▶ 試合動画を見る</a>
+</div>
+
+<div class="movie-card">
+  <div class="date">2026年8月22日</div>
+  <div class="tournament">小山市長杯</div>
+  <div class="opponent">vs 湘南B</div>
+  <a class="youtube-button" href="https://youtu.be/KablSphGXZg" target="_blank">▶ 試合動画を見る</a>
+</div>
+
+<div class="movie-card">
+  <div class="date">2026年8月16日</div>
+  <div class="tournament">サマーカップ</div>
+  <div class="opponent">vs 仙台B</div>
+  <a class="youtube-button" href="https://youtu.be/b-GpQS34aII" target="_blank">▶ 試合動画を見る</a>
+</div>
+
+<div class="movie-card">
+  <div class="date">2026年8月16日</div>
+  <div class="tournament">サマーカップ</div>
+  <div class="opponent">vs 東京城南B</div>
+  <a class="youtube-button" href="https://youtu.be/TzNdDcxxE9Y" target="_blank">▶ 試合動画を見る</a>
+</div>
+
+<div class="movie-card">
+  <div class="date">2026年8月15日</div>
+  <div class="tournament">サマーカップ</div>
+  <div class="opponent">vs 武蔵嵐山B</div>
+  <a class="youtube-button" href="https://youtu.be/9_PHCRrlp-c" target="_blank">▶ 試合動画を見る</a>
+</div>
+
+<div class="movie-card">
+  <div class="date">2026年8月15日</div>
+  <div class="tournament">サマーカップ</div>
+  <div class="opponent">vs 宮城栗原B</div>
+  <a class="youtube-button" href="https://youtu.be/BWrD9lNTYZo" target="_blank">▶ 試合動画を見る</a>
+</div>
+
+<div class="movie-card">
+  <div class="date">2026年7月20日</div>
+  <div class="tournament">オープン戦 第一試合</div>
+  <div class="opponent">vs 米沢ポニー</div>
+  <a class="youtube-button" href="https://youtu.be/2w-rgQQC4cw" target="_blank">▶ 試合動画を見る</a>
+</div>
 
 </body>
 </html>
