@@ -269,7 +269,19 @@ h1 {
 </div>
 
 <p class="message">見たい試合を選んでください</p>
+<div class="movie-card">
+  <div class="date">2026年8月29日</div>
+  <div class="tournament">オープン戦 第一試合</div>
+  <div class="opponent">vs 宮城仙北B</div>
+  <a class="youtube-button" href="https://youtu.be/fSndba-_-bg" target="_blank">▶ 試合動画を見る</a>
+</div>
 
+<div class="movie-card">
+  <div class="date">2026年8月29日</div>
+  <div class="tournament">オープン戦 第二試合</div>
+  <div class="opponent">vs 宮城仙北B</div>
+  <a class="youtube-button" href="https://youtu.be/U0nNPwR7-mg" target="_blank">▶ 試合動画を見る</a>
+</div>
 <div class="movie-card">
   <div class="date">2026年8月23日</div>
   <div class="tournament">小山市長杯</div>
