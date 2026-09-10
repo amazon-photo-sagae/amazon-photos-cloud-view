@@ -266,9 +266,24 @@ h1 {
 <div class="nav">
   <a href="/" class="photo-button">📷 PHOTO</a>
   <a href="/movie" class="movie-button">🎥 MOVIE</a>
+ 
+</div>
+ <p class="message">見たい試合を選んでください</p>
+<div class="movie-card">
+  <div class="date">2026年9月5日</div>
+  <div class="tournament">オープン戦 第一試合</div>
+  <div class="opponent">vs 宮城仙南B</div>
+  <a class="youtube-button" href="https://youtu.be/f1pDvhVBtDs" target="_blank">▶ 試合動画を見る</a>
 </div>
 
-<p class="message">見たい試合を選んでください</p>
+<div class="movie-card">
+  <div class="date">2026年9月5日</div>
+  <div class="tournament">オープン戦 第二試合</div>
+  <div class="opponent">vs 宮城仙南B</div>
+  <a class="youtube-button" href="https://youtu.be/BTE6Gt3Rg9k" target="_blank">▶ 試合動画を見る</a>
+</div>
+
+
 <div class="movie-card">
   <div class="date">2026年8月29日</div>
   <div class="tournament">オープン戦 第一試合</div>
