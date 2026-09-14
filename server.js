@@ -654,7 +654,7 @@ async function getAmazonPhotos(shareUrl) {
     });
 
     await page.goto(shareUrl, {
-      waitUntil: "domcontentloaded",
+   waitUntil: "commit",
       timeout: 60000
     });
 
