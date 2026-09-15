@@ -269,6 +269,12 @@ h1 {
  
 </div>
  <p class="message">見たい試合を選んでください</p>
+ <div class="movie-card">
+  <div class="date">2026年9月13日</div>
+  <div class="tournament">角田商事杯 一回戦</div>
+  <div class="opponent">vs 白河B</div>
+  <a class="youtube-button" href="https://youtu.be/xHpizHPEGr0" target="_blank">▶ 試合動画を見る</a>
+</div>
 <div class="movie-card">
   <div class="date">2026年9月5日</div>
   <div class="tournament">オープン戦 第一試合</div>
