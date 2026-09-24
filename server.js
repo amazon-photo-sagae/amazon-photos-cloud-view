@@ -629,7 +629,9 @@ async function getAmazonPhotos(shareUrl) {
   let browser;
 
   try {
-
+console.log("PID CHECK:", require("fs").readFileSync("/sys/fs/cgroup/pids.current", "utf8").trim());
+console.log("MEM CHECK:", process.memoryUsage());
+    
     browser = await chromium.launch({
       headless: true,
       args: [
