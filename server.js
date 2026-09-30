@@ -275,6 +275,12 @@ h1 {
   <div class="opponent">vs 仙台東B</div>
   <a class="youtube-button" href="https://youtu.be/ZqQXzZdh6BU" target="_blank">▶ 試合動画を見る</a>
 </div>
+<div class="movie-card">
+  <div class="date">2026年9月26日</div>
+  <div class="tournament">オープン戦 第二試合</div>
+  <div class="opponent">vs 仙台東B</div>
+  <a class="youtube-button" href="https://youtu.be/5LmBVfqwUJU" target="_blank">▶ 試合動画を見る</a>
+</div>
  <div class="movie-card">
   <div class="date">2026年9月19日</div>
   <div class="tournament">オープン戦 第一試合</div>
