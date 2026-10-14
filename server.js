@@ -1,15 +1,47 @@
 const express = require("express");
 const { chromium } = require("playwright");
 const fs = require("fs");
+const path = require("node:path");
+const { createPhotoFetcher, validateShareUrl } = require("./photo-fetcher");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const DEFAULT_GALLERY_URL = "https://www.amazon.co.jp/photos/share/vT10OCeuywTQHxn52cYBovcNvMHI9aUSk90toM5GyeR";
 let currentGalleryUrl = DEFAULT_GALLERY_URL;
-const GALLERY_FILE = "/data/current-gallery.txt";
-const GALLERIES_FILE = "/data/galleries.json";
-const CACHE_FILE = "/data/gallery-cache.json";
+const DATA_DIR = process.env.DATA_DIR || "/data";
+const GALLERY_FILE = path.join(DATA_DIR, "current-gallery.txt");
+const GALLERIES_FILE = path.join(DATA_DIR, "galleries.json");
+const CACHE_FILE = path.join(DATA_DIR, "gallery-cache.json");
+let storageHealthy = true;
+function atomicWrite(file, contents, encoding = "utf8") {
+  if (!storageHealthy) throw new Error("保存済みデータを読み込めなかったため、上書きを停止しています。");
+  const temporary = `${file}.${process.pid}.tmp`;
+  let created = false;
+  try {
+    fs.writeFileSync(temporary, contents, { encoding, flag: "wx" });
+    created = true;
+    fs.renameSync(temporary, file);
+  } finally {
+    if (created && fs.existsSync(temporary)) fs.unlinkSync(temporary);
+  }
+}
+function savePhotoCache(url, result) {
+  const next = new Map(galleryCache);
+  next.set(url, { time: Date.now(), images: result.images });
+  atomicWrite(CACHE_FILE, JSON.stringify(Object.fromEntries(next), null, 2));
+  galleryCache.set(url, next.get(url));
+}
+const refreshing = new Map();
+function refreshPhotos(url) {
+  if (refreshing.has(url)) return refreshing.get(url);
+  const job = getAmazonPhotos(url).then(result => {
+    savePhotoCache(url, result);
+    return result;
+  }).finally(() => refreshing.delete(url));
+  refreshing.set(url, job);
+  return job;
+}
 let galleries = [];
 const galleryCache = new Map();
 const CACHE_TIME = 12 * 60 * 60 * 1000; // 12時間
@@ -23,6 +55,7 @@ try {
     }
   }
 } catch (error) {
+  storageHealthy = false;
   console.error("保存済みアルバムURLの読み込みに失敗:", error.message);
 }
 
@@ -30,9 +63,12 @@ try {
 try {
   if (fs.existsSync(GALLERIES_FILE)) {
     const savedGalleries = fs.readFileSync(GALLERIES_FILE, "utf8");
-    galleries = JSON.parse(savedGalleries);
+    const savedList = JSON.parse(savedGalleries);
+    if (!Array.isArray(savedList)) throw new Error("アルバム一覧の形式が不正です。");
+    galleries = savedList;
   }
 } catch (error) {
+  storageHealthy = false;
   console.error("保存済み複数アルバムの読み込みに失敗:", error.message);
 }
 // 保存済みの写真キャッシュがあれば読み込む
@@ -40,11 +76,14 @@ try {
   if (fs.existsSync(CACHE_FILE)) {
     const savedCache = JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
 
+    if (!savedCache || typeof savedCache !== "object" || Array.isArray(savedCache)) throw new Error("キャッシュの形式が不正です。");
     for (const [url, data] of Object.entries(savedCache)) {
+      if (!data || !Array.isArray(data.images) || !data.images.every(image => typeof image === "string") || !Number.isFinite(data.time)) throw new Error("キャッシュの形式が不正です。");
       galleryCache.set(url, data);
     }
   }
 } catch (error) {
+  storageHealthy = false;
   console.error("保存済み写真キャッシュの読み込みに失敗:", error.message);
 }
 function escapeHtml(text = "") {
@@ -399,7 +438,7 @@ h1 {
 function requireAdminAuth(req, res, next) {
   const auth = req.headers.authorization;
 
-  if (auth) {
+  if (ADMIN_PASSWORD && typeof auth === "string" && auth.startsWith("Basic ")) {
     const encoded = auth.split(" ")[1];
     const decoded = Buffer.from(encoded, "base64").toString("utf8");
     const [username, password] = decoded.split(":");
@@ -516,14 +555,14 @@ app.get("/admin/delete", requireAdminAuth, (req, res) => {
 
   galleries.splice(index, 1);
 
-  fs.writeFileSync(
+  atomicWrite(
     GALLERIES_FILE,
     JSON.stringify(galleries, null, 2),
     "utf8"
   );
 
   galleryCache.delete(deletedGallery.url);
-fs.writeFileSync(
+atomicWrite(
   CACHE_FILE,
   JSON.stringify(Object.fromEntries(galleryCache), null, 2),
   "utf8"
@@ -561,27 +600,13 @@ const opponent = req.query.opponent;
       `);
     }
 
-    // 今後トップページで表示するアルバムを変更
+    // Preserve all existing entries. Publish in-memory state only after saving.
+    const nextGalleries = [...galleries, { date, tournament, opponent, url: newUrl }];
+    savePhotoCache(newUrl, result);
+    atomicWrite(GALLERIES_FILE, JSON.stringify(nextGalleries, null, 2));
+    galleries = nextGalleries;
+    atomicWrite(GALLERY_FILE, newUrl);
     currentGalleryUrl = newUrl;
-    fs.writeFileSync(GALLERY_FILE, newUrl, "utf8");
-    
-galleries.push({
-  date: date,
-  tournament: tournament,
-  opponent: opponent,
-  url: newUrl
-});
-fs.writeFileSync(GALLERIES_FILE, JSON.stringify(galleries, null, 2), "utf8");
-    // 新しいアルバムをキャッシュに追加
-   galleryCache.set(newUrl, {
-      time: Date.now(),
-      images: images
-    });
-fs.writeFileSync(
-  CACHE_FILE,
-  JSON.stringify(Object.fromEntries(galleryCache), null, 2),
-  "utf8"
-);
     res.send(`
 <!DOCTYPE html>
 <html lang="ja">
@@ -636,107 +661,13 @@ fs.writeFileSync(
   }
 });
 // Amazon Photosから画像URLを取得
-async function getAmazonPhotos(shareUrl) {
-
-  let browser;
-
-  try {
-console.log("PID CHECK:", require("fs").readFileSync("/sys/fs/cgroup/pids.current", "utf8").trim());
-console.log("MEM CHECK:", process.memoryUsage());
-    
-    browser = await chromium.launch({
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox"
-      ]
-    });
-
-    const page = await browser.newPage({
-      viewport: {
-        width: 1280,
-        height: 900
-      }
-    });
-
-    const networkImages = new Set();
-
-    page.on("response", async (response) => {
-
-      try {
-
-        const url = response.url();
-
-        const headers = await response.allHeaders();
-        const contentType = headers["content-type"] || "";
-
-        if (
-          contentType.startsWith("image/") &&
-          (
-            url.includes("thumbnails-photos.amazon.co.jp") ||
-            url.includes("/thumbnail/")
-          )
-        ) {
-          networkImages.add(url);
-        }
-
-      } catch (e) {
-        // 読めない通信は無視
-      }
-
-    });
-
-    await page.goto(shareUrl, {
-   waitUntil: "commit",
-      timeout: 60000
-    });
-
-    await page.waitForTimeout(7000);
-
-   // 写真が増えなくなるまで自動でスクロール
-let lastCount = 0;
-let stableCount = 0;
-
-for (let i = 0; i < 200; i++) {
-  await page.mouse.wheel(0, 2000);
-  await page.waitForTimeout(1000);
-
-  const currentCount = networkImages.size;
-
-  if (currentCount === lastCount) {
-    stableCount++;
-  } else {
-    stableCount = 0;
-    lastCount = currentCount;
-  }
-
-  // 5回続けて写真が増えなければ最後まで来たと判断
-  if (stableCount >= 5) {
-    break;
-  }
-}
-
-    const title = await page.title();
-
-    const images = Array.from(networkImages);
-
-    return {
-      title,
-      images
-    };
-
-  } finally {
-
-    if (browser) {
-      await browser.close();
-    }
-
-  }
-}
+const getAmazonPhotos = createPhotoFetcher(chromium, {
+  executablePath: process.env.CHROMIUM_EXECUTABLE_PATH
+});
 
 
 // テスト用JSON
-app.get("/test", async (req, res) => {
+app.get("/test", requireAdminAuth, async (req, res) => {
 
   const shareUrl = req.query.url;
 
@@ -787,23 +718,24 @@ const forceRefresh = req.query.refresh === "1";
 
    let images;
 
+validateShareUrl(shareUrl);
 const cached = galleryCache.get(shareUrl);
-
-if (!forceRefresh && cached && Date.now() - cached.time < CACHE_TIME) {
+const hasCache = cached && Array.isArray(cached.images) && cached.images.length;
+let refreshWarning = "";
+if (hasCache && !forceRefresh) {
   images = cached.images;
+  // Serve immediately; one background update per album, with bounded queueing.
+  if (Date.now() - cached.time >= CACHE_TIME) {
+    refreshPhotos(shareUrl).catch(error => console.error("写真キャッシュの更新失敗（既存データを保持）:", error.message));
+  }
 } else {
-  const result = await getAmazonPhotos(shareUrl);
-  images = result.images;
-
-  galleryCache.set(shareUrl, {
-    time: Date.now(),
-    images: images
-  });
-fs.writeFileSync(
-  CACHE_FILE,
-  JSON.stringify(Object.fromEntries(galleryCache), null, 2),
-  "utf8"
-);  
+  try {
+    images = (await refreshPhotos(shareUrl)).images;
+  } catch (error) {
+    if (!hasCache) throw error;
+    images = cached.images;
+    refreshWarning = "写真の更新に失敗したため、保存済みの写真を表示しています。画像URLが期限切れの場合は表示できません。";
+  }
 }
     const photoHtml = images.map((src, index) => `
       <img
@@ -963,6 +895,7 @@ header p{
 </head>
 
 <body>
+${refreshWarning ? `<p role="status">${escapeHtml(refreshWarning)}</p>` : ""}
 
 <header>
 
@@ -1157,10 +1090,12 @@ viewer.addEventListener(
 });
 
 
-app.listen(
+if (require.main === module) app.listen(
   PORT,
   "0.0.0.0",
   () => {
     console.log(`Server running on port ${PORT}`);
   }
 );
+
+module.exports = { app };
