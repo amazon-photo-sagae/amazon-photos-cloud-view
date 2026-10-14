@@ -1,15 +1,23 @@
-# Photo retrieval repair (not deployed)
+# 写真取得修正の技術メモ
 
-The Railway production service is in harmonious-intuition / production, with an existing volume mounted at /data. Do not create or replace that volume. The user's verified backup includes galleries.json (24 registrations), gallery-cache.json (25 cache entries), current-gallery.txt and the deployed server.js. Real backup data is not present in this checkout and is not used by tests.
+2026年10月14日、PR #1がmainへマージされ、Railwayでの公開成功、既存PHOTO・MOVIEの表示、新しいAmazon Photosアルバムの登録成功が管理者によって確認されました。本番環境・バックアップ・対応手順は [README.md](README.md) に記録しています。本文書にはパスワード、共有URL、画像URL、秘密鍵を記載しません。
 
-- All photo retrieval routes share a bounded queue: one active Chromium, at most six distinct active/pending jobs per Node process. Matching URLs share their job. Each browser closes before the next starts, keeping idle browser memory at zero. A close failure stops further launches rather than risking accumulation.
-- Cached views return immediately. Expired cache refreshes in the background. Forced refresh falls back to saved cache on errors. Empty retrieval results never replace valid cache. Expired Amazon image URLs can still fail to display until a successful refresh.
-- Fonts/media are blocked during scraping; images, CSS and scripts stay enabled. Existing scroll completeness detection is preserved. Navigation/launch/collection are bounded. Resource diagnostics are best-effort, including cgroup PID and memory limits/events.
-- /test now requires existing admin authentication; normal viewing remains public. Only Japanese Amazon Photos share URLs are accepted for scraping.
-- Storage paths/schema remain unchanged by default. Writes use temporary files and rename within the same directory. These are atomic per file, not a multi-file transaction. Loaded JSON is validated; failed loading blocks writes to prevent replacement of unreadable data. Registration appends existing entries.
-- DATA_DIR allows isolated local test storage (default /data). CHROMIUM_EXECUTABLE_PATH is an optional local runtime override; Railway's existing Playwright image should use its matching installed browser with no override.
-- The queue is per Node process; the observed Railway service has one replica. Multiple replicas/processes would require shared concurrency and storage coordination.
+## 動作と制約
 
-Validation: `node --test test/*.test.js`. The browser fixture test uses /usr/bin/chromium by default; set TEST_CHROMIUM_PATH to a browser available on the test machine. It maps navigation to an isolated local fixture and does not access Amazon. Route/persistence tests use synthetic data in temporary directories.
+- キューはNodeプロセスごとに1件を実行し、処理中を含め最大6件の異なるURLを保持します。同じURLの取得は同じPromiseを共有します。待機のため応答が遅れる場合があります。複数レプリカ・プロセスに変更する場合は、取得制限と保存の共有調整が別途必要です。
+- 処理ごとにChromiumを起動・終了し、終了確認後に次へ進みます。常駐ブラウザーによる待機中のメモリ使用を避けます。終了が確認できない場合は、さらに起動せず管理者による確認が必要です。
+- キャッシュがある閲覧はすぐに応答し、古いキャッシュは背景更新します。強制更新失敗時は保存済みキャッシュを表示します。Amazon画像URLの期限切れで画像が表示できない場合、成功した更新が必要です。
+- 写真0件の取得を成功扱いせず、正常なキャッシュを空に置き換えません。
+- フォントとメディア通信を止めますが、画像・CSS・スクリプトは保持します。スクロールによる写真取得と件数の安定判定は継続します。
+- ブラウザー起動は30秒、遷移は60秒のタイムアウト。起動後の収集処理全体は270秒に制限しています。PID・メモリのcgroup診断は取得可能なものだけログに記録します。
+- `/test` は既存の管理者認証が必要です。取得対象は日本のAmazon Photos共有URLに限定します。PHOTO・MOVIEの通常閲覧には管理者認証を要求しません。
+- 書き込みは同じ保存ディレクトリの一時ファイルからrenameします。各ファイル単位では保護しますが、3ファイルをまとめたトランザクションではありません。ディスク容量不足等で途中の保存だけ成功する可能性は残ります。既存JSONを読み込めない場合は上書きを停止します。
+- 保存形式と本番の既定保存先 `/data` は変更していません。動画ページとリンク、Dockerfile、依存関係は変更していません。
 
-Production Railway limits and actual Amazon shared album retrieval have not been verified with this revision. No push to main, deployment, production data writes, or environment changes are authorized before user review. Preserve the existing main auto-deployment configuration by keeping changes local until explicit authorization.
+## 検証
+
+`node --test test/*.test.js`：クラウド環境で13件成功、失敗・スキップ0件。
+
+ルート・保存テストは一時ディレクトリのテストデータを使います。実Chromiumのテストは遷移先をローカルのテスト用ページに置き換え、画像レスポンス取得とブラウザーの直列起動・終了を確認します。実際のバックアップや本番Amazonアルバムは自動テストでは使用していません。
+
+公開後の実アルバム登録成功は管理者の操作による確認です。Railwayでの障害発生時の正確なPID・メモリ上限は未取得で、長時間の負荷試験は未実施です。今後の障害時は診断ログと本番の制限を確認してください。
