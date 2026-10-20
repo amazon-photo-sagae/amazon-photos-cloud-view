@@ -1,7 +1,7 @@
 const $=id=>document.getElementById(id);
 $('teamSlogan').textContent=TEAM_CONFIG.slogan;
 $('teamYear').textContent=TEAM_CONFIG.year+' SEASON';
-if(TEAM_CONFIG.logoPath){const logo=$('teamLogo');logo.onload=()=>{$('logoFallback').hidden=true;logo.hidden=false};logo.src=TEAM_CONFIG.logoPath;}
+if(TEAM_CONFIG.logoPath){const logo=$('teamLogo');logo.onload=()=>{logo.hidden=false};logo.src=TEAM_CONFIG.logoPath;}
 
 const games=[{id:'a',date:'2026-10-18',tournament:'オープン戦',opponent:'山形ボーイズ',number:1,photo:true,movie:true},{id:'b',date:'2026-10-18',tournament:'オープン戦',opponent:'山形ボーイズ',number:2,photo:true,movie:false},{id:'c',date:'2026-10-18',tournament:'オープン戦',opponent:'山形ボーイズ',number:3,photo:false,movie:true},{id:'d',date:'2026-10-11',tournament:'秋季交流大会',opponent:'仙台東ボーイズ',number:1,photo:true,movie:true},{id:'e',date:'2026-10-04',tournament:'オープン戦',opponent:'米沢ポニー',number:1,photo:true,movie:false}];
 let filter='all';

@@ -2,6 +2,6 @@
 const TEAM_CONFIG = {
   year: '2026',
   slogan: '勝覇',
-  // 正式ロゴ画像を配置して、そのファイル名を指定します。
-  logoPath: '',
+  // 正式ロゴ原本（ユーザー提供PNG）。
+  logoPath: 'team-logo.png',
 };
