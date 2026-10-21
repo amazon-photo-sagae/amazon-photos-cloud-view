@@ -20,3 +20,5 @@ $('entryMode').onchange=()=>{const existing=$('entryMode').value==='existing';$(
 $('entry').onsubmit=e=>{e.preventDefault();if(!$('photoUrl').value&&!$('movieUrl').value){$('formStatus').textContent='PHOTOかMOVIEのURLを入力してください。';return}let g;if($('entryMode').value==='existing')g=games.find(g=>g.id===$('existingGame').value);else{g={id:crypto.randomUUID(),date:$('date').value,tournament:$('tournament').value,opponent:$('opponent').value,number:Number($('number').value),photo:false,movie:false};games.push(g)}if($('photoUrl').value)g.photo=true;if($('movieUrl').value)g.movie=true;renderGames();$('formStatus').textContent='サンプル一覧に反映しました。本番データへの送信はありません。';$('photoUrl').value='';$('movieUrl').value=''};
 renderGames();renderSongs();
 (async()=>{try{if(!('serviceWorker'in navigator))throw Error();await navigator.serviceWorker.register('./sw.js');await navigator.serviceWorker.ready;$('cacheStatus').textContent='31曲の歌詞を保存しました。音源は含まれていません。'}catch{$('cacheStatus').textContent='保存できませんでした。オンライン接続で開き直してください。'}})();
+
+if(location.hash==="#monthly")tab("monthly");
