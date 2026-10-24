@@ -309,6 +309,12 @@ h1 {
 </div>
  <p class="message">見たい試合を選んでください</p>
  <div class="movie-card">
+  <div class="date">2026年10月24日</div>
+  <div class="tournament">選手権大会 一回戦</div>
+  <div class="opponent">vs いわきボーイズ</div>
+  <a class="youtube-button" href="https://youtu.be/9n491lfL6os" target="_blank">▶ 試合動画を見る</a>
+</div>
+ <div class="movie-card">
   <div class="date">2026年10月10日</div>
   <div class="tournament">オープン戦 第三試合</div>
   <div class="opponent">vs 栗原ボーイズ</div>
