@@ -126,14 +126,34 @@ test('stage-two form and actual viewer handle multiple albums, positions, sizes,
     await page.waitForURL(base + '/');
     assert.equal(await page.locator('form[action="/results"] select').first().inputValue(), '同じ写真が開いた');
 
-    // A different pageIndex must be reported, never silently marked matched.
+    // UI state differences are accepted and distinguished from photo identity.
     await page.fill('input[name=album]', 'https://www.amazon.co.jp/photos/share/synthetic-album-A');
     await page.fill('input[name=thumbnail]', 'https://thumbnails-photos.amazon.co.jp/v1/thumbnail/late?cdsShareId=synthetic-album-A');
     await page.fill('input[name=expected]', 'https://www.amazon.co.jp/photos/share/synthetic-album-A/gallery/late?pageIndex=3');
     await page.uncheck('input[name=variant]');
     await page.getByRole('button', { name: 'テストに追加' }).click();
     await page.waitForURL(base + '/');
-    assert.match(await page.locator('tbody tr').last().textContent(), /URL不一致/);
+    assert.match(await page.locator('tbody tr').last().textContent(), /写真ID一致・URLの補助情報/);
+    for (const suffix of ['', '?other=1&pageIndex=0', '?pageIndex=0&other=1', '/?pageIndex=0']) {
+      const response = await fetch(base + '/photos', {
+        method: 'POST', redirect: 'manual', body: new URLSearchParams({
+          csrf, album: 'https://www.amazon.co.jp/photos/share/synthetic-album-A',
+          thumbnail: 'https://thumbnails-photos.amazon.co.jp/v1/thumbnail/late?cdsShareId=synthetic-album-A',
+          expected: `https://www.amazon.co.jp/photos/share/synthetic-album-A/gallery/late${suffix}`, position: 'last'
+        })
+      });
+      assert.equal(response.status, 303, suffix);
+    }
+    const differentPhoto = await fetch(base + '/photos', {
+      method: 'POST', redirect: 'manual', body: new URLSearchParams({
+        csrf, album: 'https://www.amazon.co.jp/photos/share/synthetic-album-A',
+        thumbnail: 'https://thumbnails-photos.amazon.co.jp/v1/thumbnail/late?cdsShareId=synthetic-album-A',
+        expected: 'https://www.amazon.co.jp/photos/share/synthetic-album-A/gallery/different-photo?extra=1', position: 'last'
+      })
+    });
+    assert.equal(differentPhoto.status, 303);
+    await page.goto(base);
+    assert.match(await page.locator('tbody tr').last().textContent(), /写真ID不一致/);
     assert.deepEqual(errors, []);
     assert.ok(externalRequests > 0); // All intercepted; no real Amazon traffic.
     assert.equal(scrapeAttempts, 0);

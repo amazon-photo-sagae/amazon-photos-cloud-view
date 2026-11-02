@@ -45,14 +45,14 @@ The local preview is intentionally limited to fixtures. Do not use `npm start` w
 9. 同じアルバムの先頭・中間・最後、続いて別アルバムの写真を1枚ずつ追加します。可能なら別アルバムも先頭・中間・最後を用意します。位置は人が選ぶメモです。テスト画面での並びは追加順で、Amazon側の並びや総枚数は調べません。
 10. サイズ違いのチェックを入れると、入力URLの `viewBox` だけを477・1024へ変更した確認用サムネイルも追加します。同じ写真であることは利用者が公式ページで確認します。サイズ違いは別の実写真の検証件数には数えません。
 11. 各アルバムの快適ビューから先頭・中間・最後の写真を開き、保存ボタンで同じ写真になるか確認します。最後の写真でも `pageIndex=0` で直接開けるかに注意してください。
-12. 確認画面に戻り、各写真の結果を選んで「記録」を押します。「URL一致」は入力URLとの文字列一致で、写真そのものの一致を自動判定するものではありません。`pageIndex` が違う場合も「URL不一致」と表示します。
+12. 確認画面に戻り、各写真の結果を選んで「記録」を押します。照合用URLは `pageIndex` の省略・順序違い・追加パラメータ・末尾スラッシュに対応します。共有IDと写真IDが同じで補助情報だけが異なる場合は「写真ID一致・URLの補助情報が異なります」と表示します。別の写真IDは「写真ID不一致」です。いずれも実写真の目視確認とは区別してください。
 13. 結果は画面の印刷・PDF保存などで手元に残し、PowerShellで `Ctrl+C` を押して終了します。追加URLと結果は終了時に消えます。すでに開いていた快適ビューのタブには追加前の写真一覧が残るため、追加後は確認画面のリンクから開き直してください。
 
 ### 写真1枚につき用意するURL
 
 - 共有アルバムURL：`https://www.amazon.co.jp/photos/share/共有ID`
 - 同じ写真のサムネイル画像URL：既存の快適ビューで「画像アドレスをコピー」して取得できます。調査のためだけに本番の更新・再取得操作は行わないでください。
-- Amazonの公式画面で同じ写真を開いた個別URL：`https://www.amazon.co.jp/photos/share/共有ID/gallery/写真ID?pageIndex=数字`
+- Amazonの公式画面で同じ写真を開いた個別URL：`https://www.amazon.co.jp/photos/share/共有ID/gallery/写真ID`（`pageIndex` や追加パラメータが付いていても入力できます）
 
 Cookie、パスワード、認証ヘッダーは不要です。個別URLから逆算した架空のサムネイルではなく、実際の同じ写真の画像URLを使ってください。画像URLが期限切れなどで表示できない場合は「開けなかった」と記録し、リンクの対応不良とは区別してください。
 
@@ -66,4 +66,4 @@ Set `TEST_CHROMIUM_PATH` to an installed Chromium executable on other machines. 
 
 ## Still unverified
 
-The user supplied one real matched thumbnail/individual-page pair and reported that the previous local test opened the correct official page and downloaded a high-resolution JPEG. This is a user-reported result, not a new cloud verification. Multiple distinct photos and albums, album-end photos with `pageIndex=0`, iOS Safari/Android behavior and expired/revoked sharing remain unverified on real Amazon pages. Automated stage-two tests use synthetic first/middle/last photos, multiple albums and thumbnail sizes, and intercept all external browser requests. They also verify local input validation, result recording, mismatch reporting, inaccessible admin/uncached routes, zero scraper calls and disposable-cache cleanup. Amazon is blocked by this cloud environment's network policy. URL validation cannot establish that a photo still exists or that its shared link remains accessible. Treat this branch as experimental until manual checks pass.
+The user reported successful manual verification of all 12 stage-two entries, including first/middle/last photos, thumbnail size variants and missing-ID fallback. Earlier they reported opening the correct official page and downloading a high-resolution JPEG. These are user-reported results, not new cloud verification. Coverage of specific different albums/devices and revoked or expired sharing has not been independently established. Automated tests use synthetic photos and intercept all external browser requests. They verify local input validation, result recording, identity comparison, inaccessible admin/uncached routes, zero scraper calls and disposable-cache cleanup. The exact URL that caused the reported form error has not yet been supplied; the identified overly restrictive query-format check has been replaced and common variants have regression tests. URL validation cannot establish that a photo still exists or that its shared link remains accessible.

@@ -5,6 +5,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { chromium } = require('playwright');
 const { buildAmazonPhotoLink } = require('../amazon-photo-link');
+const { parseExpectedPhotoUrl, expectedPhotoStatus } = require('./expected-photo-url');
 
 const escape = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const positions = { first: '先頭', middle: '中間', last: '最後', other: 'その他' };
@@ -96,11 +97,11 @@ ${error ? `<p class="error" role="alert">${escape(error)}</p>` : ''}
 <p>各アルバムを開き、写真を選んで「元画質で保存（Amazon Photosへ）」を押してください。写真切り替え・前後移動でも確認します。</p>
 ${albums.map((url, i) => `<p><a class="viewer-link" href="/gallery?url=${encodeURIComponent(url)}" target="_blank" rel="noopener noreferrer">アルバム${i + 1}の快適ビューを開く</a><small><code>${escape(url)}</code></small></p>`).join('')}
 <p>テストの並びは追加順です。「先頭・中間・最後」は元のAmazonアルバムでの位置を表すメモで、自動判定はしていません。</p></section>
-<section><h2>3. 確認結果を記録</h2><p>「URL一致」は文字列の照合結果です。同じ写真が表示されたかはご自身で確認してください。写真が表示されなくても、枠を押して保存先の案内は確認できます。</p>
+<section><h2>3. 確認結果を記録</h2><p>共有IDと写真IDを照合します。pageIndexなどの違いは補助情報として区別します。同じ写真が表示されたかはご自身で確認してください。写真が表示されなくても、枠を押して保存先の案内は確認できます。</p>
 <div class="scroll"><table><thead><tr><th>対象</th><th>生成リンク・URL照合</th><th>ブラウザでの確認結果</th></tr></thead><tbody>
 ${records.map((record, i) => {
       const destination = buildAmazonPhotoLink(record.thumbnail, record.album);
-      const status = !destination.individual ? '共有アルバムへの案内' : !record.expected ? '照合用URLは未入力' : destination.href === record.expected ? 'URL一致（写真の目視確認は別途必要）' : 'URL不一致（pageIndexなども確認）';
+      const status = expectedPhotoStatus(destination, record.expected);
       return `<tr><td>${escape(record.label)}<small>アルバム${albums.indexOf(record.album) + 1}・テスト画面の${record.index + 1}枚目</small></td>
 <td><a target="_blank" rel="noopener noreferrer" href="${escape(destination.href)}">${destination.individual ? '生成した個別ページを開く' : '共有アルバムを開く'}</a><small>${escape(status)}</small></td>
 <td><form action="/results" method="post"><input type="hidden" name="csrf" value="${csrf}"><input type="hidden" name="index" value="${i}"><select name="result" aria-label="${escape(record.label)}の確認結果">${results.map(result => `<option${record.result === result ? ' selected' : ''}>${escape(result)}</option>`).join('')}</select><button type="submit">記録</button></form></td></tr>`;
@@ -122,7 +123,11 @@ ${records.map((record, i) => {
       // deliberately malformed ID fixtures. Never load non-Amazon hosts.
       if (!/^https:\/\/thumbnails-photos\.amazon\.co\.jp\/[^\s"'<>`\\#]+$/.test(thumb)) throw Error('サムネイルURLのホスト・形式を確認してください。');
       const check = inputExpected.trim();
-      if (check && (!/^https:\/\/www\.amazon\.co\.jp\/photos\/share\/[A-Za-z0-9_-]+\/gallery\/[A-Za-z0-9_-]+\?pageIndex=[0-9]+$/.test(check) || !check.startsWith(`${destination.href}/gallery/`))) throw Error('照合用の個別URLは、同じ共有アルバム内の写真URLを入力してください。');
+      if (check) {
+        const reference = parseExpectedPhotoUrl(check);
+        if (!reference) throw Error('照合用URLはAmazon Photosの個別写真URLを入力してください。pageIndexの有無や追加パラメータは問いません。');
+        if (reference.albumHref !== destination.href) throw Error('照合用URLの共有アルバムIDが、入力した共有アルバムと異なります。');
+      }
       const additions = [{ label: `${positions[position]}（入力した写真）`, album: destination.href, thumbnail: thumb, expected: check, result: '未確認' }];
       if (req.body.variant === 'yes' && buildAmazonPhotoLink(thumb, destination.href)?.individual) {
         for (const size of ['477', '1024']) {
