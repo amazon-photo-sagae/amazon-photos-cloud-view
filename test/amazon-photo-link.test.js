@@ -47,3 +47,19 @@ test('invalid album URLs never become outbound destinations', () => {
 test('album query parameters cannot change the fixed outbound destination', () => {
   assert.equal(buildAmazonPhotoLink(thumbnail, `${album}/?next=https://evil.example`).href, `${album}/gallery/${id}?pageIndex=0`);
 });
+
+test('synthetic first/middle/last photos in distinct albums keep their IDs across thumbnail sizes', () => {
+  // Synthetic cases test conversion only; they do not prove real Amazon matches.
+  for (const albumId of ['test-album-A', 'test-album-B']) {
+    for (const photoId of ['first-photo', 'middle-photo', 'last-photo']) {
+      const currentAlbum = `https://www.amazon.co.jp/photos/share/${albumId}`;
+      for (const size of ['100', '477', '1024']) {
+        const value = `https://thumbnails-photos.amazon.co.jp/v1/thumbnail/${photoId}?ownerId=test-owner&viewBox=${size}&cdsShareId=${albumId}`;
+        assert.deepEqual(buildAmazonPhotoLink(value, currentAlbum), {
+          href: `${currentAlbum}/gallery/${photoId}?pageIndex=0`, individual: true
+        });
+        assert.equal(buildAmazonPhotoLink(value, album).individual, false);
+      }
+    }
+  }
+});
