@@ -70,6 +70,7 @@ async function withApp(fetcher, run, corrupt = false) {
   const context = {
     require(name) {
       if (name === 'playwright') return { chromium: {} };
+      if (name === './amazon-photo-link') return require('../amazon-photo-link');
       if (name === './photo-fetcher') return { createPhotoFetcher: () => fetcher, validateShareUrl: require('../photo-fetcher').validateShareUrl };
       return require(name);
     }, module: moduleObject,
