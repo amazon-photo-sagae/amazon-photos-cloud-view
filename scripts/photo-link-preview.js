@@ -63,7 +63,9 @@ function createPreview() {
 
   const app = express();
   app.use((req, res, next) => {
-    if (!/^(127\.0\.0\.1|localhost):[0-9]+$/.test(req.headers.host || '')) return res.sendStatus(403);
+    const allowedHosts = ['127.0.0.1', 'localhost'];
+if (process.env.PREVIEW_LAN_IP === '192.168.1.110') allowedHosts.push('192.168.1.110');
+if (!allowedHosts.some(host => req.headers.host === `${host}:${process.env.PREVIEW_PORT || 3001}`)) return res.sendStatus(403);
     res.set('Cache-Control', 'no-store');
     res.set('Referrer-Policy', 'same-origin');
     res.set('Content-Security-Policy', "default-src 'self'; img-src https://thumbnails-photos.amazon.co.jp data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
