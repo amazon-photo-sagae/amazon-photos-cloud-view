@@ -1,9 +1,10 @@
 // Local-only preview: disposable fixture storage, no scraping or production data.
 const { createPreview } = require('./photo-link-preview');
 const preview = createPreview();
-const server = preview.app.listen(Number(process.env.PREVIEW_PORT || 3001), '127.0.0.1', () => {
+const host = process.env.PREVIEW_LAN_IP === '192.168.1.110' ? '192.168.1.110' : '127.0.0.1';
+const server = preview.app.listen(Number(process.env.PREVIEW_PORT || 3001), host, () => {
   console.log('Local test preview only. Production data is not loaded.');
-  console.log(`http://127.0.0.1:${server.address().port}/`);
+  console.log(`http://${host}:${server.address().port}/`);
   console.log('Add supplied photo URLs in the local form. No scraping is performed.');
   console.log('Ctrl+C stops the preview and removes its disposable data.');
 });
