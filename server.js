@@ -864,25 +864,30 @@ header p{
   inset:0;
   z-index:100;
   background:#000;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:minmax(0,1fr) auto;
+}
+
+#viewer.active{
+  display:grid;
+}
+
+#photoStage{
+  position:relative;
+  min-width:0;
+  min-height:0;
+  display:flex;
   align-items:center;
   justify-content:center;
 }
 
-#viewer.active{
-  display:flex;
-}
-
 #viewerImage{
   max-width:100%;
-  max-height:calc(100% - 150px);
+  max-height:100%;
   object-fit:contain;
 }
 
 #savePhotoPanel{
-  position:absolute;
-  bottom:0;
-  left:0;
-  right:0;
   padding:12px 12px calc(12px + env(safe-area-inset-bottom));
   text-align:center;
   background:rgba(0,0,0,.85);
@@ -944,6 +949,7 @@ header p{
 
 #counter{
   position:absolute;
+  z-index:110;
   top:22px;
   left:50%;
   transform:translateX(-50%);
@@ -990,6 +996,7 @@ ${
 
 <div id="counter"></div>
 
+<div id="photoStage">
 <button
   class="nav"
   id="prev"
@@ -1005,6 +1012,7 @@ ${
   id="next"
 >›</button>
 
+</div>
 <div id="savePhotoPanel">
   <a id="savePhotoLink" target="_blank" rel="noopener noreferrer" hidden></a>
   <p id="savePhotoHint" aria-live="polite"></p>
