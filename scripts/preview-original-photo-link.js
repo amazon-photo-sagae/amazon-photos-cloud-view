@@ -1,12 +1,13 @@
 // Local-only preview: disposable fixture storage, no scraping or production data.
 const { createPreview } = require('./photo-link-preview');
+const port = Number(process.env.PREVIEW_PORT || 3001);
+if (!Number.isInteger(port) || port < 0 || port > 65535) throw Error('PREVIEW_PORTには0〜65535の整数を指定してください。');
 const preview = createPreview();
-const host = process.env.PREVIEW_LAN_IP === '192.168.1.110' ? '192.168.1.110' : '127.0.0.1';
-const server = preview.app.listen(Number(process.env.PREVIEW_PORT || 3001), host, () => {
-  console.log('Local test preview only. Production data is not loaded.');
-  console.log(`http://${host}:${server.address().port}/`);
-  console.log('Add supplied photo URLs in the local form. No scraping is performed.');
-  console.log('Ctrl+C stops the preview and removes its disposable data.');
+const server = preview.app.listen(port, preview.bindHost, () => {
+  console.log('ローカルテストです。本番データは読み込みません。');
+  console.log(`http://${preview.bindHost}:${server.address().port}/`);
+  console.log('画像はローカルサンプルです。Amazonへの自動アクセスは行いません。');
+  console.log('終了するには Ctrl+C を押してください。一時データは削除されます。');
 });
 process.on('exit', preview.cleanup);
 server.on('error', error => { console.error(error.message); process.exitCode = 1; });

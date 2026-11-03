@@ -1,69 +1,160 @@
-# Original-photo link test branch
+# 元画質保存リンク：安全なローカルテスト手順
 
-This is a test version only. Do not merge into main, deploy, publish, or use/change the existing Railway service or volume as part of testing.
+対象ブランチは `test/original-photo-link` です。mainへマージせず、本番Railway・設定・環境変数・Volume `/data`・登録済みアルバム・既存キャッシュには操作しません。
 
-The viewer converts a thumbnail's photo ID and matching `cdsShareId` into the corresponding Amazon Photos individual-page link. It does not download original files. Users finish saving through Amazon's official download control. Links open in a new tab with `noopener noreferrer`.
+## このテストでできること
 
-Only the exact HTTPS thumbnail host and `/v1/thumbnail/{ID}` format are accepted. A single `cdsShareId` must match the currently viewed album. Unknown/malformed URLs fall back to the current shared album; an invalid album URL produces no link. IDs are case-sensitive and are never inferred from ordering or filenames. Existing cache schema, photo fetching and storage code are unchanged.
+既存 `server.js` の実際の `/gallery` を使い、写真を開く、前後移動、折り返し、スワイプ、閉じて再表示する操作と、元画質保存リンクの更新を確認できます。
 
-## Safe local browser check
+表示画像は番号付きのローカルサンプルです。写真URLはリンク生成だけに使い、Amazonのサムネイルや元画像は自動取得しません。サンプル画像を見て実写真と一致したとは判定しないでください。利用者が保存リンクを押したときだけAmazonの公式ページへ移動します。完全にオフラインで確認するときはリンクを押さず、リンク先のコピーで確認してください。
 
-Use a separate local clone on your own computer. No Railway configuration or credentials are needed. Node 24 was used for validation.
+## Windowsでの起動（1ステップずつ進める）
 
-```sh
-git clone --branch test/original-photo-link --single-branch https://github.com/amazon-photo-sagae/amazon-photos-cloud-view.git amazon-photos-link-test
-cd amazon-photos-link-test
+### 1. 以前のテストを停止する
+
+以前のテストを起動したPowerShellが動いていれば、その画面で **Ctrl+C** を押します。
+
+### 2. 最新版を別フォルダーに用意する
+
+GitHubで次のテストブランチを開きます。
+
+https://github.com/amazon-photo-sagae/amazon-photos-cloud-view/tree/test/original-photo-link
+
+ブランチ名が `test/original-photo-link` であることを確認し、「Code」→「Download ZIP」でダウンロードして、新しいフォルダーへ展開します。古いフォルダーへ上書きしません。
+
+Windows側で待ち受けアドレスを `192.168.1.110` に手動変更していても、その変更は引き継ぎません。通常は `127.0.0.1` でPC内だけに待ち受けます。既存ブランチに追加されていた明示的なLAN設定は保持し、割り当て済みのプライベートIPだけを許可する検証を追加しました。インターネット公開は行いません。
+
+### 3. 展開したフォルダーでPowerShellを開く
+
+`server.js`、`package.json`、`scripts` が見えるフォルダーをエクスプローラーで開きます。アドレス欄に `powershell` と入力してEnterを押します。
+
+### 4. 依存関係を導入する
+
+次の1行を実行します。Node.jsは前回Windowsテストで使用したものを使えます。クラウド検証ではNode 24を使用しています。
+
+```powershell
 npm install --package-lock=false --no-audit --no-fund
+```
+
+これはnpmの依存関係を導入する操作です。Amazonの写真は取得しません。手動の画面確認にChromiumの追加インストールは不要です。エラーの場合は次へ進まず、表示内容を確認してください。
+
+### 5. テスト画面を起動する
+
+以前LAN設定を使った場合も、まず次の1行でこのPowerShellのLAN設定を解除します。
+
+```powershell
+Remove-Item Env:PREVIEW_LAN_IP -ErrorAction SilentlyContinue
+```
+
+続いて起動します。
+
+```powershell
 node scripts/preview-original-photo-link.js
 ```
 
-Open the local address printed by the script in your computer's browser. Stage two opens a Japanese dashboard at `http://127.0.0.1:3001/`. It binds to loopback only; do not expose it through a public tunnel or deploy it. If port 3001 is occupied, set `PREVIEW_PORT` to another port.
+PowerShellを開いたままにします。`npm start` は使いません。待ち受けアドレスを手動で変更したり、ルーター・Railway・ファイアウォールを変更したりする必要はありません。
 
-The helper always creates a new temporary DATA_DIR, ignores any inherited DATA_DIR/admin password, and disables Chromium scraping. It does not read production or existing development caches. Only the local dashboard, fixture-backed viewer and local test forms are exposed; admin, scraping and uncached album routes are not exposed. A supplied `refresh=1` is stripped. Ctrl+C removes only its own temporary files. No Chromium installation is needed for this manual preview. Ordinary browser requests for thumbnails and clicked destination links go directly to Amazon; no original files pass through the local server.
+### 6. Windowsのブラウザで開く
 
-- Tiles 1 and 2 deliberately show the **same** user-verified photo with different `viewBox` sizes. Both should open the supplied photo-2 individual URL. This does not validate a second distinct photo.
-- Tile 3 removes `cdsShareId` to exercise fallback. Its image may be unavailable; clicking the tile must still offer the shared album, with instructions to select the photo there.
-- Tile 4 removes the photo ID to exercise the other missing-ID fallback. It is an intentionally invalid thumbnail, not a real fourth photo.
-- Open a tile, switch next/previous (including wraparound), swipe on a touch device, close and reopen. Check that the link always follows the selected tile.
-- The individual button reads `元画質で保存（Amazon Photosへ）` and says `開いた画面のダウンロード機能で保存してください`.
-- Check the new tab in a logged-out/incognito session and complete an official download if permitted. Compare the file with a known original if verifying original quality.
+PowerShellに表示されたアドレスを開きます。標準のポートは3001です。
 
-The local preview is intentionally limited to fixtures. Do not use `npm start` with the default `/data` or open uncached production albums for this test.
+```text
+http://127.0.0.1:3001/
+```
 
-## 第2段階：Windowsでの確認（1項目ずつ進める）
+このアドレスはテストを起動したPCだけで使えます。こちらのクラウドで起動しても、Windows側には起動されません。トンネルや外部公開サービスは使いません。
 
-前回使ったローカルのテスト用フォルダーを使います。本番サービスや環境設定の操作は不要です。画面の入力内容はGitHubに送信されません。
+### 7. 初期サンプルで確認する
 
-1. 前回のテストサーバーが動いていれば、そのPowerShellで `Ctrl+C` を押して止めます。
-2. テスト用フォルダーでPowerShellを開き、`git status --short --branch` を実行します。ローカル変更があれば上書きせず確認してください。`node_modules/` は導入済み依存関係です。
-3. ブランチが異なる場合は `git switch test/original-photo-link` を実行します。
-4. `git pull --ff-only origin test/original-photo-link` でテストブランチだけを更新します。mainへの切り替えやマージはしません。
-5. `node scripts/preview-original-photo-link.js` を実行します。前回の依存関係が残っていれば再インストールは不要です。
-6. PCのブラウザで `http://127.0.0.1:3001/` を開きます。クラウド環境で同じコマンドを実行しても、Windows側にはサーバーは起動しません。
-7. まず「アルバム1の快適ビューを開く」で前回の写真を再確認します。最初の2枚は同じ写真のサイズ違い、3・4枚目は安全なアルバム案内の確認用です。
-8. 画面に戻り、追加したい写真の位置とURLを入力して「テストに追加」を押します。共有アルバムURLとサムネイル画像URLは必須です。公式個別URLは任意ですが、一致確認のため入力を推奨します。
-9. 同じアルバムの先頭・中間・最後、続いて別アルバムの写真を1枚ずつ追加します。可能なら別アルバムも先頭・中間・最後を用意します。位置は人が選ぶメモです。テスト画面での並びは追加順で、Amazon側の並びや総枚数は調べません。
-10. サイズ違いのチェックを入れると、入力URLの `viewBox` だけを477・1024へ変更した確認用サムネイルも追加します。同じ写真であることは利用者が公式ページで確認します。サイズ違いは別の実写真の検証件数には数えません。
-11. 各アルバムの快適ビューから先頭・中間・最後の写真を開き、保存ボタンで同じ写真になるか確認します。最後の写真でも `pageIndex=0` で直接開けるかに注意してください。
-12. 確認画面に戻り、各写真の結果を選んで「記録」を押します。照合用URLは `pageIndex` の省略・順序違い・追加パラメータ・末尾スラッシュに対応します。共有IDと写真IDが同じで補助情報だけが異なる場合は「写真ID一致・URLの補助情報が異なります」と表示します。別の写真IDは「写真ID不一致」です。いずれも実写真の目視確認とは区別してください。
-13. 結果は画面の印刷・PDF保存などで手元に残し、PowerShellで `Ctrl+C` を押して終了します。追加URLと結果は終了時に消えます。すでに開いていた快適ビューのタブには追加前の写真一覧が残るため、追加後は確認画面のリンクから開き直してください。
+「アルバム1の快適ビューを開く」を押します。
 
-### 写真1枚につき用意するURL
+- 1・2枚目：同じ提供済み写真URLのサイズ違いです。表示は別番号のサンプルですが、保存リンクはどちらも写真2の個別ページになります。
+- 3枚目：共有IDなし。共有アルバムを開く案内になります。
+- 4枚目：写真IDなし。同じく共有アルバムへの案内になります。
+- 次へ・前へ・最後から先頭への移動、スワイプ、閉じて別写真を開く操作で、ボタンの行き先が更新されるか確認します。
+- 「元画質で保存（Amazon Photosへ）」と「開いた画面のダウンロード機能で保存してください」が表示されることを確認します。
+
+Windowsでスワイプできるのはタッチ対応環境などの場合です。非対応PCでは前後ボタンを使い、スワイプは自動ブラウザテストの結果と区別してください。
+
+### 8. 必要に応じて写真のURLを追加する
+
+確認画面へ戻り、写真1枚につき以下を入力します。URLは自分のPC内の一時データだけに使われます。GitHubや本番へ送信しません。
 
 - 共有アルバムURL：`https://www.amazon.co.jp/photos/share/共有ID`
-- 同じ写真のサムネイル画像URL：既存の快適ビューで「画像アドレスをコピー」して取得できます。調査のためだけに本番の更新・再取得操作は行わないでください。
-- Amazonの公式画面で同じ写真を開いた個別URL：`https://www.amazon.co.jp/photos/share/共有ID/gallery/写真ID`（`pageIndex` や追加パラメータが付いていても入力できます）
+- 同じ写真のサムネイル画像URL：`https://thumbnails-photos.amazon.co.jp/...`
+- 公式画面で同じ写真を開いた個別URL（任意・照合用）：`https://www.amazon.co.jp/photos/share/共有ID/gallery/写真ID`
 
-Cookie、パスワード、認証ヘッダーは不要です。個別URLから逆算した架空のサムネイルではなく、実際の同じ写真の画像URLを使ってください。画像URLが期限切れなどで表示できない場合は「開けなかった」と記録し、リンクの対応不良とは区別してください。
+Cookie、パスワード、認証ヘッダーは不要です。追加しても表示はローカルサンプルのままです。先頭・中間・最後は利用者が付けるメモであり、自動巡回による判定はしません。既存の本番画面で更新や再取得を操作してURLを集めないでください。
 
-## Automated validation
+サイズ違いのチェックは `viewBox` を477・1024に変えた確認用URLを追加します。別の実写真を検証した件数には数えません。追加後は確認画面から快適ビューを開き直します。
+
+照合用URLはpageIndexの省略・追加パラメータ・順序違い・末尾スラッシュに対応します。「URL一致」「写真ID一致・補助情報違い」「写真ID不一致」は識別情報の比較で、実写真の目視確認ではありません。
+
+### 9. 結果を残して終了する
+
+必要なら確認結果を記録し、画面を印刷・PDF保存します。起動したPowerShellで **Ctrl+C** を押します。新しく作った一時データだけが削除され、追加URLと確認結果は消えます。終了後にブラウザを再読み込みすると接続できなくなることを確認してください。
+
+### ポートが使用中の場合
+
+古いサーバーを停止しても3001が使用中なら、このPowerShellだけで別のポートを指定できます。
+
+```powershell
+$env:PREVIEW_PORT = "3002"
+```
+
+その後ステップ5の起動コマンドを実行し、表示されたアドレスを使います。終了後、設定を戻すには次の1行です。
+
+```powershell
+Remove-Item Env:PREVIEW_PORT -ErrorAction SilentlyContinue
+```
+
+## 本番データとネットワークからの分離
+
+- 毎回、新規の一時ディレクトリを作ります。既存のDATA_DIRや管理者パスワードは、テスト用ビューへ渡しません。
+- 実際の `server.js` は専用モジュールコンテキストで読み込みます。ファイル読み込みは一時ディレクトリ内の決められた3ファイルだけ、書き込みは拒否します。
+- テスト用ビュー内だけでキャッシュを新鮮なものとして扱い、時刻も固定します。実ファイルの時刻や本番のキャッシュ処理は変更しません。
+- 取得関数はテスト用の拒否処理に置き換えます。Playwrightを起動せず、取得処理本体を呼びません。
+- 外側のテストサーバーは追加済みアルバムだけを許可し、`refresh=1` を取り除きます。管理・登録・削除・取得ルートは404です。
+- HTMLの画像表示先だけをサンプルへ置き換えます。元の写真URLと保存リンクのロジックは維持します。HTML構造が想定と違えば、外部画像を表示せずエラーにします。
+- ブラウザのポリシーでも外部画像・通信を禁止し、DNS先読みも無効にします。公式リンクを利用者が押す操作だけは可能です。
+- 通常はループバックだけで待ち受け、Hostはlocalhostまたは127.0.0.1と実際の待ち受けポートが一致する場合だけ許可します。明示的LANモードでも指定した1つのIPと実ポートだけを許可します。フォームの送信元も検証します。
+
+## 自動テストと残る確認
 
 ```sh
 TEST_CHROMIUM_PATH=/usr/bin/chromium node --test test/*.test.js
 ```
 
-Set `TEST_CHROMIUM_PATH` to an installed Chromium executable on other machines. Browser tests use disposable fixture storage and intercept external navigation; they do not contact Amazon. The new test verifies the emitted page, link updates, new-tab destination, opener isolation, fallback, next/previous/wraparound, touch handlers, close/reopen, viewport bounds, zero scraping launches, and unchanged fixture cache bytes. Existing route, persistence and browser-fetch tests remain enabled.
+これは開発環境向けです。Windowsの通常の画面確認では実行不要です。ブラウザテストにはChromiumが必要ですが、画像取得先はローカルの模擬データで、Amazonへの実通信は行いません。
 
-## Still unverified
+利用者から前回の12件の実写真確認成功をご報告いただいています。今回の自動テストはサンプルでの操作・リンク生成・自動通信抑止・更新抑止・一時データ保護を検証するもので、新たな実写真一致の確認ではありません。iPhone/Safari、共有解除・期限切れ、最新のAmazon画面・利用条件は本番導入前の確認として残ります。本番への反映は別途明示的な許可が必要です。
 
-The user reported successful manual verification of all 12 stage-two entries, including first/middle/last photos, thumbnail size variants and missing-ID fallback. Earlier they reported opening the correct official page and downloading a high-resolution JPEG. These are user-reported results, not new cloud verification. Coverage of specific different albums/devices and revoked or expired sharing has not been independently established. Automated tests use synthetic photos and intercept all external browser requests. They verify local input validation, result recording, identity comparison, inaccessible admin/uncached routes, zero scraper calls and disposable-cache cleanup. The exact URL that caused the reported form error has not yet been supplied; the identified overly restrictive query-format check has been replaced and common variants have regression tests. URL validation cannot establish that a photo still exists or that its shared link remains accessible.
+## 既存の明示的LANモードを使う場合だけ
+
+PC内の確認だけならこの節は不要です。信頼できる自宅Wi-Fi内で、WindowsとiPhoneを同じネットワークに接続している場合に限ります。公開トンネル・ルーターのポート開放・ファイアウォールの無効化は行いません。
+
+1. 起動中のテストを Ctrl+C で停止します。
+2. WindowsのIPv4アドレスが現在も192.168.1.110であることを確認します。違う場合は現在の値を使います。
+3. テスト用PowerShellで次を実行します。
+
+```powershell
+$env:PREVIEW_LAN_IP = "192.168.1.110"
+```
+
+4. 通常と同じ起動コマンドを実行します。
+
+```powershell
+node scripts/preview-original-photo-link.js
+```
+
+5. WindowsとiPhoneのSafariで、表示された `http://192.168.1.110:3001/` を開きます。明示的LANモードでは127.0.0.1のアドレスは使いません。IPはそのPCに割り当て済みのプライベートIPv4でなければ起動を拒否します。全アドレスや公開IPには待ち受けません。
+6. 接続できない場合は同じWi-Fiか確認します。Windowsの許可画面が出た場合は信頼するプライベートネットワークだけを対象にし、パブリックネットワークを許可しないでください。接続できない原因を解決するためにセキュリティ機能を無効化しないでください。
+7. テスト終了後は Ctrl+C で停止し、次を実行します。
+
+```powershell
+Remove-Item Env:PREVIEW_LAN_IP -ErrorAction SilentlyContinue
+```
+
+8. 通常の起動コマンドで起動し直し、表示先が `http://127.0.0.1:3001/` に戻ったことを確認します。不要になった個別のファイアウォール許可を追加していた場合は、その許可だけを元へ戻します。
+
+LAN設定はGitHubやRailwayに保存しません。同じLANの他端末も接続し得るため、このモードは必要なテストの間だけ有効にしてください。クラウドでの自動テスト成功は、WindowsのファイアウォールやiPhoneの実機接続の確認を意味しません。

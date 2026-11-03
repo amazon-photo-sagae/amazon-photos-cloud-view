@@ -3,21 +3,21 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { chromium } = require('playwright');
+const { loadPreviewViewer, sampleGalleryHtml } = require('./preview-viewer');
 const { buildAmazonPhotoLink } = require('../amazon-photo-link');
 const { parseExpectedPhotoUrl, expectedPhotoStatus } = require('./expected-photo-url');
+const { previewHost } = require('./preview-network');
 
 const escape = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const positions = { first: '先頭', middle: '中間', last: '最後', other: 'その他' };
 const results = ['未確認', '同じ写真が開いた', '違う写真が開いた', '開けなかった'];
 
 function createPreview() {
+  const bindHost = previewHost();
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'photo-link-preview-'));
   const csrf = crypto.randomBytes(24).toString('hex');
-  const originalLaunch = chromium.launch;
-  const blockedLaunch = async () => { throw new Error('Scraping is disabled in this local preview.'); };
-  chromium.launch = blockedLaunch;
   let viewer;
+  const audits = [];
   let records = [];
 
   function rebuild() {
@@ -28,20 +28,9 @@ function createPreview() {
       cache[record.album].images.push(record.thumbnail);
     }
     fs.writeFileSync(path.join(directory, 'gallery-cache.json'), JSON.stringify(cache));
-    // Load the unchanged viewer with disposable data; expose no admin routes.
-    const previousDataDir = process.env.DATA_DIR;
-    const previousPassword = process.env.ADMIN_PASSWORD;
-    try {
-      process.env.DATA_DIR = directory;
-      delete process.env.ADMIN_PASSWORD;
-      delete require.cache[require.resolve('../server')];
-      viewer = require('../server').app;
-    } finally {
-      if (previousDataDir === undefined) delete process.env.DATA_DIR;
-      else process.env.DATA_DIR = previousDataDir;
-      if (previousPassword === undefined) delete process.env.ADMIN_PASSWORD;
-      else process.env.ADMIN_PASSWORD = previousPassword;
-    }
+    const loaded = loadPreviewViewer(directory);
+    viewer = loaded.app;
+    audits.push(loaded.audit);
   }
 
   const share = '0ib8h7jiztQ0T6eiAoEvjWTejt68Iw422qxy6mW2ptJ';
@@ -56,19 +45,19 @@ function createPreview() {
   ];
   try { rebuild(); }
   catch (error) {
-    chromium.launch = originalLaunch;
     fs.rmSync(directory, { recursive: true, force: true });
     throw error;
   }
 
   const app = express();
   app.use((req, res, next) => {
-    const allowedHosts = ['127.0.0.1', 'localhost'];
-if (process.env.PREVIEW_LAN_IP === '192.168.1.110') allowedHosts.push('192.168.1.110');
-if (!allowedHosts.some(host => req.headers.host === `${host}:${process.env.PREVIEW_PORT || 3001}`)) return res.sendStatus(403);
+    const allowed = [`${bindHost}:${req.socket.localPort}`];
+    if (bindHost === '127.0.0.1') allowed.push(`localhost:${req.socket.localPort}`);
+    if (!allowed.includes(req.headers.host)) return res.sendStatus(403);
     res.set('Cache-Control', 'no-store');
     res.set('Referrer-Policy', 'same-origin');
-    res.set('Content-Security-Policy', "default-src 'self'; img-src https://thumbnails-photos.amazon.co.jp data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
+    res.set('X-DNS-Prefetch-Control', 'off');
+    res.set('Content-Security-Policy', "default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
     next();
   });
   app.use(express.urlencoded({ extended: false, limit: '16kb' }));
@@ -83,8 +72,8 @@ if (!allowedHosts.some(host => req.headers.host === `${host}:${process.env.PREVI
 <title>元画質保存 第2段階テスト</title>
 <style>body{font-family:system-ui,sans-serif;max-width:1050px;margin:auto;padding:20px;background:#f5f5f5;color:#222}section{background:white;padding:18px;margin:18px 0;border-radius:10px}label{display:block;margin:14px 0}input[type=url],select{box-sizing:border-box;width:100%;padding:10px;margin-top:5px}button,.viewer-link{display:inline-block;padding:12px;background:#173e63;color:white;border:0;border-radius:6px;text-decoration:none}table{border-collapse:collapse;width:100%}td,th{padding:12px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}.scroll{overflow:auto}.error{color:#a00}code{overflow-wrap:anywhere}small{display:block;margin:8px 0}</style>
 <h1>元画質保存 第2段階テスト</h1>
-<p>このPCだけのテスト画面です。本番データは読み込みません。追加したURLと確認結果は終了すると消えます。</p>
-<p>画像はブラウザからAmazonへ直接読み込みます。自動巡回・元画像の自動取得・サーバー転送は行いません。</p>
+<p>${bindHost === '127.0.0.1' ? 'このPCだけのテスト画面です。' : '明示的に指定したLANアドレスだけのテスト画面です。'}本番データは読み込みません。追加したURLと確認結果は終了すると消えます。</p>
+<p>表示画像はローカルのサンプルです。Amazonの写真は自動で読み込みません。保存リンクを自分で押したときだけ、公式ページを開きます。</p>
 ${error ? `<p class="error" role="alert">${escape(error)}</p>` : ''}
 <section><h2>1. 確認する写真を追加</h2>
 <p>同じ写真のURLをコピーして入力してください。先頭・中間・最後、別アルバムの写真を1枚ずつ追加できます。</p>
@@ -99,7 +88,7 @@ ${error ? `<p class="error" role="alert">${escape(error)}</p>` : ''}
 <p>各アルバムを開き、写真を選んで「元画質で保存（Amazon Photosへ）」を押してください。写真切り替え・前後移動でも確認します。</p>
 ${albums.map((url, i) => `<p><a class="viewer-link" href="/gallery?url=${encodeURIComponent(url)}" target="_blank" rel="noopener noreferrer">アルバム${i + 1}の快適ビューを開く</a><small><code>${escape(url)}</code></small></p>`).join('')}
 <p>テストの並びは追加順です。「先頭・中間・最後」は元のAmazonアルバムでの位置を表すメモで、自動判定はしていません。</p></section>
-<section><h2>3. 確認結果を記録</h2><p>共有IDと写真IDを照合します。pageIndexなどの違いは補助情報として区別します。同じ写真が表示されたかはご自身で確認してください。写真が表示されなくても、枠を押して保存先の案内は確認できます。</p>
+<section><h2>3. 確認結果を記録</h2><p>共有IDと写真IDを照合します。pageIndexなどの違いは補助情報として区別します。サンプル画像では実写真の一致を判定できません。公式ページを開く場合は、ご自身で確認してください。</p>
 <div class="scroll"><table><thead><tr><th>対象</th><th>生成リンク・URL照合</th><th>ブラウザでの確認結果</th></tr></thead><tbody>
 ${records.map((record, i) => {
       const destination = buildAmazonPhotoLink(record.thumbnail, record.album);
@@ -152,15 +141,26 @@ ${records.map((record, i) => {
   app.get('/gallery', (req, res, next) => {
     if (typeof req.query.url !== 'string' || !records.some(record => record.album === req.query.url)) return res.status(404).send('追加済みのテスト用アルバムだけ開けます。確認画面へ戻ってください。');
     req.url = `/gallery?url=${encodeURIComponent(req.query.url)}`;
+    const count = records.filter(record => record.album === req.query.url).length;
+    const send = res.send.bind(res);
+    res.send = html => {
+      try { return send(sampleGalleryHtml(html, count)); }
+      catch { return res.status(500).end('ローカル表示の準備に失敗しました。Amazonの画像は取得しません。'); }
+    };
     viewer(req, res, next);
   });
   app.use((req, res) => res.sendStatus(404));
 
   return {
     app,
+    bindHost,
     directory,
+    get audit() { return {
+      readPaths: audits.flatMap(audit => audit.readPaths),
+      writeAttempts: audits.reduce((sum, audit) => sum + audit.writeAttempts, 0),
+      fetchAttempts: audits.reduce((sum, audit) => sum + audit.fetchAttempts, 0)
+    }; },
     cleanup() {
-      if (chromium.launch === blockedLaunch) chromium.launch = originalLaunch;
       fs.rmSync(directory, { recursive: true, force: true });
     }
   };

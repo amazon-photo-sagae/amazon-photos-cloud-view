@@ -24,8 +24,10 @@ test('stage-two form and actual viewer handle multiple albums, positions, sizes,
   try {
     const context = await browser.newContext();
     let externalRequests = 0;
+    const externalKinds = [];
     await context.route('https://**/*', route => {
       externalRequests++;
+      externalKinds.push({ type: route.request().resourceType(), navigation: route.request().isNavigationRequest() });
       return route.request().resourceType() === 'image'
         ? route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30"><rect width="30" height="30" fill="blue"/></svg>' })
         : route.fulfill({ contentType: 'text/html', body: '<title>Offline Amazon fixture</title>' });
@@ -51,6 +53,11 @@ test('stage-two form and actual viewer handle multiple albums, positions, sizes,
     assert.equal(foreignHostStatus, 403);
     assert.equal((await fetch(base + '/photos', { method: 'POST', body: new URLSearchParams({ csrf }), headers: { origin: 'https://evil.example' } })).status, 403);
     assert.equal((await fetch(base + '/photos', { method: 'POST', body: new URLSearchParams({}) })).status, 403);
+    const wrongPortStatus = await new Promise((resolve, reject) => {
+      const request = http.get(base, { headers: { host: '127.0.0.1:1' } }, response => { response.resume(); resolve(response.statusCode); });
+      request.on('error', reject);
+    });
+    assert.equal(wrongPortStatus, 403);
     for (const invalid of [
       { album: 'https://evil.example/photos/share/test' },
       { thumbnail: 'https://thumbnails-photos.amazon.co.jp.evil.example/a' },
@@ -61,6 +68,10 @@ test('stage-two form and actual viewer handle multiple albums, positions, sizes,
         method: 'POST', body: new URLSearchParams({ csrf, album: 'https://www.amazon.co.jp/photos/share/test-album', thumbnail: 'https://thumbnails-photos.amazon.co.jp/v1/thumbnail/photo?cdsShareId=test-album', expected: '', position: 'first', ...invalid })
       });
       assert.equal(response.status, 400);
+    }
+    assert.equal(fs.readFileSync(file, 'utf8'), seed);
+    for (const route of ['/admin/update', '/admin/delete', '/test']) {
+      assert.equal((await fetch(base + route, { method: 'POST', body: new URLSearchParams({ csrf }) })).status, 404);
     }
     assert.equal(fs.readFileSync(file, 'utf8'), seed);
 
@@ -83,6 +94,7 @@ test('stage-two form and actual viewer handle multiple albums, positions, sizes,
     assert.match(tableText, /中間/);
     assert.match(tableText, /最後/);
     assert.equal((tableText.match(/URL一致/g) || []).length, 14);
+    assert.equal(externalRequests, 0);
 
     // Actual emitted viewer: first/middle/last plus size variants in each album.
     for (const albumId of ['synthetic-album-A', 'synthetic-album-B']) {
@@ -91,6 +103,8 @@ test('stage-two form and actual viewer handle multiple albums, positions, sizes,
       await page.goto(`${base}/gallery?url=${encodeURIComponent(album)}&refresh=1`);
       assert.equal(await page.locator('.photo').count(), 6);
       await page.locator('.photo').first().click();
+      assert.match(await page.locator('#viewerImage').getAttribute('src'), /^data:image\/svg\+xml;base64,/);
+      assert.equal(await page.locator('#viewerImage').evaluate(image => image.complete && image.naturalWidth > 0), true);
       for (const position of ['first', 'middle', 'last']) {
         for (let size = 0; size < 2; size++) {
           const link = page.locator('#savePhotoLink');
@@ -108,6 +122,15 @@ test('stage-two form and actual viewer handle multiple albums, positions, sizes,
       }
       assert.equal(await page.locator('#savePhotoLink').getAttribute('href'), `${album}/gallery/first?pageIndex=0`);
       await page.locator('#prev').click();
+      assert.equal(await page.locator('#savePhotoLink').getAttribute('href'), `${album}/gallery/last?pageIndex=0`);
+      await page.locator('#close').click();
+      assert.equal(await page.locator('#viewer').isVisible(), false);
+      await page.locator('.photo').nth(2).click();
+      assert.equal(await page.locator('#savePhotoLink').getAttribute('href'), `${album}/gallery/middle?pageIndex=0`);
+      for (let i = 0; i < 2; i++) {
+        await page.locator('#viewer').dispatchEvent('touchstart', { changedTouches: [{ identifier: 1, screenX: 200 }] });
+        await page.locator('#viewer').dispatchEvent('touchend', { changedTouches: [{ identifier: 1, screenX: 100 }] });
+      }
       assert.equal(await page.locator('#savePhotoLink').getAttribute('href'), `${album}/gallery/last?pageIndex=0`);
       assert.equal(fs.readFileSync(file, 'utf8'), beforeViewing);
     }
@@ -156,7 +179,11 @@ test('stage-two form and actual viewer handle multiple albums, positions, sizes,
     assert.match(await page.locator('tbody tr').last().textContent(), /写真ID不一致/);
     assert.deepEqual(errors, []);
     assert.ok(externalRequests > 0); // All intercepted; no real Amazon traffic.
+    assert.ok(externalKinds.every(request => request.type === 'document' && request.navigation));
     assert.equal(scrapeAttempts, 0);
+    assert.equal(preview.audit.fetchAttempts, 0);
+    assert.equal(preview.audit.writeAttempts, 0);
+    assert.ok(preview.audit.readPaths.every(file => path.dirname(file) === preview.directory));
     assert.deepEqual(fs.readdirSync(preview.directory), ['gallery-cache.json']);
   } finally {
     chromium.launch = blockedLaunch;
