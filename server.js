@@ -3,6 +3,7 @@ const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("node:path");
 const { createPhotoFetcher, validateShareUrl } = require("./photo-fetcher");
+const { buildAmazonPhotoLink } = require("./amazon-photo-link");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -785,7 +786,8 @@ if (hasCache && !forceRefresh) {
       >
     `).join("");
 
-    const imagesJson = JSON.stringify(images);
+    const imagesJson = JSON.stringify(images).replaceAll("<", "\\u003c");
+    const albumJson = JSON.stringify(shareUrl).replaceAll("<", "\\u003c");
 
     res.send(`
 <!DOCTYPE html>
@@ -862,18 +864,52 @@ header p{
   inset:0;
   z-index:100;
   background:#000;
-  align-items:center;
-  justify-content:center;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:minmax(0,1fr) auto;
 }
 
 #viewer.active{
+  display:grid;
+}
+
+#photoStage{
+  position:relative;
+  min-width:0;
+  min-height:0;
   display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
 #viewerImage{
   max-width:100%;
   max-height:100%;
   object-fit:contain;
+}
+
+#savePhotoPanel{
+  padding:12px 12px calc(12px + env(safe-area-inset-bottom));
+  text-align:center;
+  background:rgba(0,0,0,.85);
+}
+
+#savePhotoLink{
+  display:inline-block;
+  padding:12px 16px;
+  border-radius:8px;
+  background:white;
+  color:#111;
+  font-weight:bold;
+  text-decoration:none;
+}
+
+#savePhotoPanel p{
+  margin:8px 0 0;
+  font-size:12px;
+}
+
+#savePhotoLink[hidden]{
+  display:none;
 }
 
 #close{
@@ -913,6 +949,7 @@ header p{
 
 #counter{
   position:absolute;
+  z-index:110;
   top:22px;
   left:50%;
   transform:translateX(-50%);
@@ -959,6 +996,7 @@ ${
 
 <div id="counter"></div>
 
+<div id="photoStage">
 <button
   class="nav"
   id="prev"
@@ -975,10 +1013,20 @@ ${
 >›</button>
 
 </div>
+<div id="savePhotoPanel">
+  <a id="savePhotoLink" target="_blank" rel="noopener noreferrer" hidden></a>
+  <p id="savePhotoHint" aria-live="polite"></p>
+</div>
+
+</div>
 
 <script>
 
 const photos = ${imagesJson};
+const albumUrl = ${albumJson};
+const buildAmazonPhotoLink = ${buildAmazonPhotoLink.toString()};
+const savePhotoLink = document.getElementById("savePhotoLink");
+const savePhotoHint = document.getElementById("savePhotoHint");
 
 const viewer =
   document.getElementById("viewer");
@@ -999,6 +1047,21 @@ function showPhoto(index){
 
   viewerImage.src =
     photos[currentIndex];
+
+  const destination = buildAmazonPhotoLink(photos[currentIndex], albumUrl);
+  savePhotoLink.hidden = !destination;
+  if (destination) {
+    savePhotoLink.href = destination.href;
+    savePhotoLink.textContent = destination.individual
+      ? "元画質で保存（Amazon Photosへ）"
+      : "Amazon Photosで共有アルバムを開く";
+    savePhotoHint.textContent = destination.individual
+      ? "開いた画面のダウンロード機能で保存してください"
+      : "写真の個別リンクを確認できません。同じ写真を選び、開いた画面のダウンロード機能で保存してください";
+  } else {
+    savePhotoLink.removeAttribute("href");
+    savePhotoHint.textContent = "共有アルバムのURLを確認できないため、保存先を開けません。";
+  }
 
   counter.textContent =
     (currentIndex + 1)
