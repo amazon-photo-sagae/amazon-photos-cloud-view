@@ -310,6 +310,18 @@ h1 {
 </div>
  <p class="message">見たい試合を選んでください</p>
  <div class="movie-card">
+  <div class="date">2026年11月22日</div>
+  <div class="tournament">本庄市長杯 第一試合</div>
+  <div class="opponent">vs 高崎ボーイズ</div>
+  <a class="youtube-button" href="https://youtu.be/pEVAw21d2Rg" target="_blank">▶ 試合動画を見る</a>
+</div>
+ <div class="movie-card">
+  <div class="date">2026年11月22日</div>
+  <div class="tournament">本庄市長杯 第二試合</div>
+  <div class="opponent">vs 多摩川ボーイズ</div>
+  <a class="youtube-button" href="https://youtu.be/lZo1ywsYQg4" target="_blank">▶ 試合動画を見る</a>
+</div>
+ <div class="movie-card">
   <div class="date">2026年10月25日</div>
   <div class="tournament">選手権大会 決勝</div>
   <div class="opponent">vs 郡山中央ボーイズ</div>
